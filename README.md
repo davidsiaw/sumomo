@@ -20,7 +20,21 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+This gem lets you use all of the syntax in the [momo](https://github.com/davidsiaw/momo) and more!
+
+You need to setup your AWS credentials using `aws configure`.
+
+```
+require "sumomo"
+
+Sumomo::update_stack(name: "mystack", region: "ap-northeast-1") do
+	x = hidden_value "meow"
+
+	output "Haha", x
+end
+
+Sumomo::wait_for_stack(name: "kurosawa", region: "ap-northeast-1")
+```
 
 ## Development
 
@@ -30,5 +44,5 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/sumomo.
+Bug reports and pull requests are welcome on GitHub at https://github.com/davidsiaw/sumomo.
 
