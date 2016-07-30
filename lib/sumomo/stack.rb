@@ -1,6 +1,6 @@
 module Sumomo
 	module Stack
-
+		
 		def hidden_value(value)
 			name = make_default_resource_name("HiddenValue")
 			if !@hidden_values
@@ -20,8 +20,7 @@ module Sumomo
 
 			stringio = Zip::OutputStream.write_buffer do |zio|
 				zio.put_next_entry("index.js")
-				zio.write File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") )
-				zio.write code
+				zio.write File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") ).sub("{{ CODE }}", code)
 			end
 			@store.set_raw("cloudformation/function#{@custom_resource_count}", stringio.string)
 
@@ -30,7 +29,7 @@ module Sumomo
 				Code code_location
 				Description "CF Resource Custom::#{name}"
 				Handler "index.handler"
-				Runtime "nodejs"
+				Runtime "nodejs4.3"
 				Timeout 30
 				Role exec_role.Arn
 			end
@@ -39,8 +38,11 @@ module Sumomo
 		end
 
 		def make_custom(custom_resource, options = {}, &block)
+			bucket_name = @bucket_name
 			stack_make "Custom::#{custom_resource.name}", options do
 				ServiceToken custom_resource.Arn
+				Region ref("AWS::Region")
+				Bucket bucket_name
 				instance_eval(&block)
 			end
 		end
@@ -63,6 +65,7 @@ module Sumomo
 						"Action" => ["sts:AssumeRole"]
 					}]
 				}
+				bucket_name = @bucket_name
 				@exec_role = make "AWS::IAM::Role", name: "LambdaFunctionExecutionRole" do
 					AssumeRolePolicyDocument role_policy_doc
 					Path "/"
@@ -84,7 +87,7 @@ module Sumomo
 								{
 									"Effect" => "Allow",
 									"Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
-									"Resource" => "arn:aws:s3:::#{name}/data"
+									"Resource" => "arn:aws:s3:::#{bucket_name}/*"
 								}]
 							}
 						}

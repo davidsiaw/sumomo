@@ -36,6 +36,7 @@ module Sumomo
 		template = Momo::cfl do
 			inject Sumomo::Stack
 
+			@version_number = dummy_number
 			@custom_resource_count = 0
 			@custom_resources = {}
 			@bucket_name = name
@@ -66,7 +67,6 @@ module Sumomo
 		begin
 			cf.update_stack(update_options)
 		rescue => e
-			puts e
 			cf.create_stack(update_options)
 		end
 	end
@@ -90,7 +90,7 @@ module Sumomo
 			begin
 				unless /^arn\:/.match(stack_id)
 					stack_id = cf.describe_stacks(stack_name: stack_id).stacks[0].stack_id
-					puts "Unique Stack ID: #{stack_id}"
+					#puts "Unique Stack ID: #{stack_id}"
 				end
 
 				resp = cf.describe_stack_events(stack_name: stack_id)
@@ -133,7 +133,7 @@ module Sumomo
 		bucket = s3.bucket(name)
 
 		cf.delete_stack(stack_name: name)
-		bucket.delete!
+		#bucket.delete!
 	end
 
 	singleton_class.send(:alias_method, :create_stack, :update_stack)
