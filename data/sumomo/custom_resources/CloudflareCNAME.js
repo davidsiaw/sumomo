@@ -1,3 +1,10 @@
+// Key: Cloudflare API key
+// Email: Cloudflare API email
+// Domain: Cloudflare domain
+// Entry: DNS entry text
+// CNAME: The CNAME record
+// return Record ID of the CNAME record
+
 var querystring = require('querystring');
 var https = require('https');
 

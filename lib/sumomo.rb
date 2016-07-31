@@ -37,7 +37,6 @@ module Sumomo
 			inject Sumomo::Stack
 
 			@version_number = dummy_number
-			@custom_resource_count = 0
 			@custom_resources = {}
 			@bucket_name = name
 			@store = store
@@ -62,11 +61,13 @@ module Sumomo
 			template_url: store.url("cloudformation/template"), 
 			parameters: hidden_values,
 			capabilities: ["CAPABILITY_IAM"]
+
 		}
 
 		begin
 			cf.update_stack(update_options)
 		rescue => e
+			update_options[:timeout_in_minutes] = 30
 			cf.create_stack(update_options)
 		end
 	end
@@ -118,7 +119,7 @@ module Sumomo
 			begin
 				resp = cf.describe_stacks(stack_name: stack_id)
 
-				break if /COMPLETE$/.match(resp.stacks[0].stack_status)
+				break if /(COMPLETE)|(FAILED)$/.match(resp.stacks[0].stack_status)
 
 			rescue => e
 				puts "describe_stacks: #{e.message}"
@@ -127,13 +128,28 @@ module Sumomo
 		end 
 	end
 
-	def self.delete_stack(name:, region:)
+	def self.delete_stack(name:, region:, retain_bucket: false)
 		cf = Aws::CloudFormation::Client.new(region: region)
-		s3 = Aws::S3::Resource.new(region: region)
-		bucket = s3.bucket(name)
 
 		cf.delete_stack(stack_name: name)
-		#bucket.delete!
+
+		if !retain_bucket
+			self.wait_for_stack(name: name, region: region)
+			s3 = Aws::S3::Resource.new(region: region)
+			bucket = s3.bucket(name)
+			bucket.delete!
+		end
+	end
+
+	def self.get_stack_outputs(name:, region:)
+		cf = Aws::CloudFormation::Client.new(region: region)
+
+		map = {}
+		cf.describe_stacks(stack_name: name).stacks[0].outputs.each do |x|
+			map[x.output_key] = x.output_value
+		end
+
+		map
 	end
 
 	singleton_class.send(:alias_method, :create_stack, :update_stack)

@@ -1,6 +1,6 @@
 module Sumomo
 	module Stack
-		
+
 		def hidden_value(value)
 			name = make_default_resource_name("HiddenValue")
 			if !@hidden_values
@@ -15,16 +15,17 @@ module Sumomo
 			param name, type: :string
 		end
 
-		def define_custom_resource(name:,code:)
-			@custom_resource_count += 1
+		def define_custom_resource(name: nil,code:)
+
+			name ||= make_default_resource_name("CustomResource")
 
 			stringio = Zip::OutputStream.write_buffer do |zio|
 				zio.put_next_entry("index.js")
 				zio.write File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") ).sub("{{ CODE }}", code)
 			end
-			@store.set_raw("cloudformation/function#{@custom_resource_count}", stringio.string)
+			@store.set_raw("cloudformation/function_#{name}", stringio.string)
 
-			code_location = {"S3Bucket": @bucket_name, "S3Key": "cloudformation/function#{@custom_resource_count}"}
+			code_location = {"S3Bucket": @bucket_name, "S3Key": "cloudformation/function_#{name}"}
 			fun = make "AWS::Lambda::Function", name: name do
 				Code code_location
 				Description "CF Resource Custom::#{name}"
@@ -43,12 +44,24 @@ module Sumomo
 				ServiceToken custom_resource.Arn
 				Region ref("AWS::Region")
 				Bucket bucket_name
-				instance_eval(&block)
+				instance_eval(&block) if block
 			end
 		end
 
 		def make(type, options = {}, &block)
-			if /Custom\:\:/.match(type)
+			match = /^Custom\:\:(?<name>[a-z0-9]+)/i.match(type)
+			if match
+				if !@custom_resources[type]
+
+					resource_function_source = File.join(Gem.datadir("sumomo"), "custom_resources", "#{match[:name]}.js")
+					
+					if File.exists? resource_function_source
+						define_custom_resource(name: match[:name], code: File.read(resource_function_source))
+					else
+						throw "#{resource_function_source} does not exist"
+
+					end
+				end
 				make_custom(@custom_resources[type], options, &block)
 			else
 				stack_make(type, options, &block)
@@ -81,7 +94,7 @@ module Sumomo
 								},
 								{
 									"Effect" => "Allow",
-									"Action" => ["cloudformation:DescribeStacks"],
+									"Action" => ["cloudformation:DescribeStacks", "ec2:Describe*", ],
 									"Resource" => "*"
 								},
 								{
