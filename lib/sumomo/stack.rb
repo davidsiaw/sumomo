@@ -110,5 +110,6 @@ module Sumomo
 			@exec_role
 		end
 
+
 	end
 end

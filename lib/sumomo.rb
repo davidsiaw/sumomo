@@ -3,6 +3,7 @@ require 'momo'
 require 's3cabinet'
 require 'aws-sdk'
 require 'zip'
+require 'yaml'
 
 require "sumomo/version"
 require 'sumomo/stack'
@@ -15,14 +16,33 @@ module Sumomo
 
 		cf = Aws::CloudFormation::Client.new(region: region)
 		s3 = Aws::S3::Client.new(region: region)
+		ec2 = Aws::EC2::Client.new(region: region)
 
 		begin
 			s3.head_bucket(bucket: name)
-		rescue
+		rescue Aws::S3::Errors::NotFound => e
 			s3.create_bucket(bucket: name)
 		end
 
 		store = S3Cabinet::S3Cabinet.new(nil, nil, name, region)
+
+		master_key_name = "#{name}_master_key"
+		master_key_key = "cloudformation/#{master_key_name}.pem"
+
+		if !store.get(master_key_key)
+
+			resp = nil
+			begin
+				resp = ec2.create_key_pair(key_name: master_key_name)
+			rescue
+				ec2.delete_key_pair(key_name: master_key_name)
+				resp = ec2.create_key_pair(key_name: master_key_name)
+			end
+			
+			store.set(master_key_key, resp.key_material)
+			store.set("#{master_key_key}.fingerprint", resp.key_fingerprint)
+
+		end
 
 		dummy_number = store.get("cloudformation/dummy_number")
 		if dummy_number == nil
@@ -40,6 +60,10 @@ module Sumomo
 			@custom_resources = {}
 			@bucket_name = name
 			@store = store
+			@master_key_name = master_key_name
+			@ec2 = ec2
+			@cf = cf
+			@s3 = s3
 
 			make "AWS::EC2::SecurityGroup", name: "DummyResource" do
 				GroupDescription "Dummy thing for Cloudformation Deployment."
@@ -54,6 +78,8 @@ module Sumomo
 
 		end.templatize
 
+		#puts JSON.parse(template).to_yaml
+		
 		store.set_raw("cloudformation/template", template)
 
 		update_options = {
@@ -119,7 +145,7 @@ module Sumomo
 			begin
 				resp = cf.describe_stacks(stack_name: stack_id)
 
-				break if /(COMPLETE)|(FAILED)$/.match(resp.stacks[0].stack_status)
+				break if /(COMPLETE$)|(FAILED$)/.match(resp.stacks[0].stack_status)
 
 			rescue => e
 				puts "describe_stacks: #{e.message}"
