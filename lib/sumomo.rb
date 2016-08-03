@@ -1,4 +1,3 @@
-
 require 'momo'
 require 's3cabinet'
 require 'aws-sdk'
@@ -11,6 +10,14 @@ require 'sumomo/momo_extensions/resource'
 require 'sumomo/momo_extensions/stack'
 
 module Sumomo
+
+	def self.make_master_key_name(name:)
+		"#{name}_master_key"
+	end
+
+	def self.make_master_key_key(name:)
+		"cloudformation/#{make_master_key_name(name: name)}.pem"
+	end
 
 	def self.update_stack(name:, region:, &block)
 
@@ -26,15 +33,17 @@ module Sumomo
 
 		store = S3Cabinet::S3Cabinet.new(nil, nil, name, region)
 
-		master_key_name = "#{name}_master_key"
-		master_key_key = "cloudformation/#{master_key_name}.pem"
+		master_key_name = make_master_key_name(name: name)
+		master_key_key = make_master_key_key(name: name)
 
 		if !store.get(master_key_key)
 
 			resp = nil
 			begin
+				puts "No master key found, creating..."
 				resp = ec2.create_key_pair(key_name: master_key_name)
 			rescue
+				puts "Master key conflict! Deleting old one"
 				ec2.delete_key_pair(key_name: master_key_name)
 				resp = ec2.create_key_pair(key_name: master_key_name)
 			end
@@ -56,6 +65,7 @@ module Sumomo
 		template = Momo::cfl do
 			inject Sumomo::Stack
 
+			@region = region
 			@version_number = dummy_number
 			@custom_resources = {}
 			@bucket_name = name
@@ -156,8 +166,10 @@ module Sumomo
 
 	def self.delete_stack(name:, region:, retain_bucket: false)
 		cf = Aws::CloudFormation::Client.new(region: region)
+		ec2 = Aws::EC2::Client.new(region: region)
 
 		cf.delete_stack(stack_name: name)
+		ec2.delete_key_pair(key_name: make_master_key_name(name: name))
 
 		if !retain_bucket
 			self.wait_for_stack(name: name, region: region)

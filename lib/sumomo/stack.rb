@@ -1,3 +1,5 @@
+require "active_support/inflector"
+
 module Sumomo
 	module Stack
 
@@ -110,6 +112,82 @@ module Sumomo
 			@exec_role
 		end
 
+		def get_azs
+			resp = @ec2.describe_availability_zones
 
+			Array(resp.availability_zones.map do |x|
+				x.zone_name
+			end)
+		end
+
+		def make_network(layers: [])
+
+			zones = get_azs()
+
+			region = @region
+
+			vpc = make "AWS::EC2::VPC" do
+				CidrBlock "10.0.0.0/16"
+				EnableDnsSupport true
+				EnableDnsHostnames true
+				tag "Name", call("Fn::Join", "-", [ref("AWS::StackName")])
+			end
+
+			gateway = make "AWS::EC2::InternetGateway" do
+				tag "Name", call("Fn::Join", "-", [ref("AWS::StackName")])
+			end
+
+			attachment = make "AWS::EC2::VPCGatewayAttachment" do
+				VpcId vpc
+				InternetGatewayId gateway
+			end
+
+			inet_route_table = make "AWS::EC2::RouteTable" do
+				depends_on attachment
+				VpcId vpc
+				tag "Name", call("Fn::Join", "-", ["public", ref("AWS::StackName")])
+			end
+
+			make "AWS::EC2::Route" do
+				RouteTableId inet_route_table
+				DestinationCidrBlock "0.0.0.0/0"
+				GatewayId gateway
+			end
+
+			subnet_numbers = 0
+
+			subnets = {}
+
+			layers.each do |layer|
+
+				subnets[layer] = []
+
+				zones.each do |zone|
+
+					zone_letter = zone.sub("#{region}", "")
+
+					cidr = "10.0.#{subnet_numbers}.0/24"
+
+					subnet = make "AWS::EC2::Subnet", name: "SubnetFor#{layer.camelize}Layer#{zone_letter.upcase}" do
+						AvailabilityZone zone
+						VpcId vpc
+						CidrBlock cidr
+
+						tag("Name", call("Fn::Join", "-", [ ref("AWS::StackName"), "#{layer}", zone_letter] ) )
+					end
+
+					make "AWS::EC2::SubnetRouteTableAssociation", name: "SubnetRTAFor#{layer.camelize}Layer#{zone_letter.upcase}" do
+						SubnetId subnet
+						RouteTableId inet_route_table
+					end
+
+					subnet_numbers += 1
+
+					subnets[layer] << {name: subnet, cidr: cidr}
+				end
+			end
+
+			{vpc: vpc, subnets: subnets, azs: zones, attachment: attachment}
+		end
 	end
 end

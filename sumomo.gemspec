@@ -34,4 +34,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "s3cabinet"
   spec.add_dependency "aws-sdk"
   spec.add_dependency "rubyzip"
+  spec.add_dependency "activesupport"
 end
