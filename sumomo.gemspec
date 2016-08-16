@@ -30,9 +30,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "rspec", "~> 3.0"
 
-  spec.add_dependency "momo", "0.3.2"
+  spec.add_dependency "momo"
   spec.add_dependency "s3cabinet"
   spec.add_dependency "aws-sdk"
   spec.add_dependency "rubyzip"
   spec.add_dependency "activesupport"
+  spec.add_dependency "hashie"
 end

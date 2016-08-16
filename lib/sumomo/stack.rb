@@ -1,4 +1,3 @@
-require "active_support/inflector"
 
 module Sumomo
 	module Stack
@@ -17,27 +16,64 @@ module Sumomo
 			param name, type: :string
 		end
 
+		def upload_file(name,content)
+			@store.set_raw("uploads/#{name}", content)
+		end
+
+		def make_lambda(name: nil, files:[{name:"index.js", code:""}],
+			description: "Lambda Function in #{@bucket_name}", 
+			function_key: "cloudformation/lambda/function_#{name}",
+			handler: "index.handler",
+			runtime: "nodejs4.3",
+			memory_size: 128,
+			timeout: 30,
+			role: nil)
+
+			name ||= make_default_resource_name("Lambda")
+
+			stringio = Zip::OutputStream.write_buffer do |zio|
+				files.each do |file|
+					zio.put_next_entry(file[:name])
+					if file[:code]
+						zio.write file[:code]
+					elsif file[:path]
+						zio.write File.read(file[:path])
+					else
+						raise "Files needs to be an array of objects with :name and :code or :path members"
+					end
+				end
+			end
+
+			@store.set_raw(function_key, stringio.string)
+
+			code_location = {"S3Bucket": @bucket_name, "S3Key": function_key}
+			fun = make "AWS::Lambda::Function", name: name do
+				Code code_location
+				Description description
+				MemorySize memory_size
+				Handler handler
+				Runtime runtime
+				Timeout timeout
+				Role role || exec_role.Arn
+			end
+		end
+
 		def define_custom_resource(name: nil,code:)
 
 			name ||= make_default_resource_name("CustomResource")
 
-			stringio = Zip::OutputStream.write_buffer do |zio|
-				zio.put_next_entry("index.js")
-				zio.write File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") ).sub("{{ CODE }}", code)
-			end
-			@store.set_raw("cloudformation/function_#{name}", stringio.string)
+			func = make_lambda(
+				name: name, 
+				files:[
+					{
+						name: "index.js", 
+						code: File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") ).sub("{{ CODE }}", code)
+					}
+				],
+				description: "CF Resource Custom::#{name}",
+				function_key: "cloudformation/custom_resources/function_#{name}")
 
-			code_location = {"S3Bucket": @bucket_name, "S3Key": "cloudformation/function_#{name}"}
-			fun = make "AWS::Lambda::Function", name: name do
-				Code code_location
-				Description "CF Resource Custom::#{name}"
-				Handler "index.handler"
-				Runtime "nodejs4.3"
-				Timeout 30
-				Role exec_role.Arn
-			end
-
-			@custom_resources["Custom::#{name}"] = fun
+			@custom_resources["Custom::#{name}"] = func
 		end
 
 		def make_custom(custom_resource, options = {}, &block)
@@ -112,82 +148,5 @@ module Sumomo
 			@exec_role
 		end
 
-		def get_azs
-			resp = @ec2.describe_availability_zones
-
-			Array(resp.availability_zones.map do |x|
-				x.zone_name
-			end)
-		end
-
-		def make_network(layers: [])
-
-			zones = get_azs()
-
-			region = @region
-
-			vpc = make "AWS::EC2::VPC" do
-				CidrBlock "10.0.0.0/16"
-				EnableDnsSupport true
-				EnableDnsHostnames true
-				tag "Name", call("Fn::Join", "-", [ref("AWS::StackName")])
-			end
-
-			gateway = make "AWS::EC2::InternetGateway" do
-				tag "Name", call("Fn::Join", "-", [ref("AWS::StackName")])
-			end
-
-			attachment = make "AWS::EC2::VPCGatewayAttachment" do
-				VpcId vpc
-				InternetGatewayId gateway
-			end
-
-			inet_route_table = make "AWS::EC2::RouteTable" do
-				depends_on attachment
-				VpcId vpc
-				tag "Name", call("Fn::Join", "-", ["public", ref("AWS::StackName")])
-			end
-
-			make "AWS::EC2::Route" do
-				RouteTableId inet_route_table
-				DestinationCidrBlock "0.0.0.0/0"
-				GatewayId gateway
-			end
-
-			subnet_numbers = 0
-
-			subnets = {}
-
-			layers.each do |layer|
-
-				subnets[layer] = []
-
-				zones.each do |zone|
-
-					zone_letter = zone.sub("#{region}", "")
-
-					cidr = "10.0.#{subnet_numbers}.0/24"
-
-					subnet = make "AWS::EC2::Subnet", name: "SubnetFor#{layer.camelize}Layer#{zone_letter.upcase}" do
-						AvailabilityZone zone
-						VpcId vpc
-						CidrBlock cidr
-
-						tag("Name", call("Fn::Join", "-", [ ref("AWS::StackName"), "#{layer}", zone_letter] ) )
-					end
-
-					make "AWS::EC2::SubnetRouteTableAssociation", name: "SubnetRTAFor#{layer.camelize}Layer#{zone_letter.upcase}" do
-						SubnetId subnet
-						RouteTableId inet_route_table
-					end
-
-					subnet_numbers += 1
-
-					subnets[layer] << {name: subnet, cidr: cidr}
-				end
-			end
-
-			{vpc: vpc, subnets: subnets, azs: zones, attachment: attachment}
-		end
 	end
 end

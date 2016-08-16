@@ -15,59 +15,82 @@ var want_to_pay = request.ResourceProperties.TargetPrice;
 var exclude = exclude_string.split(",")
 
 var typeToCapability = {
-  "t1.micro"    : { cpu:  1024, memory:  1024, gen: 1},
-  "t2.nano"     : { cpu:  1024, memory:   512, gen: 2},
-  "t2.micro"    : { cpu:  1024, memory:  1024, gen: 2},
-  "t2.small"    : { cpu:  1024, memory:  2048, gen: 2},
-  "t2.medium"   : { cpu:  2048, memory:  4096, gen: 2},
-  "t2.large"    : { cpu:  2048, memory:  8192, gen: 2},
-  "m1.small"    : { cpu:  1024, memory:  1740, gen: 1},
-  "m1.medium"   : { cpu:  1024, memory:  3840, gen: 1},
-  "m1.large"    : { cpu:  2048, memory:  7680, gen: 1},
-  "m1.xlarge"   : { cpu:  4096, memory: 15360, gen: 1},
-  "m2.xlarge"   : { cpu:  2048, memory: 17510, gen: 2},
-  "m2.2xlarge"  : { cpu:  4096, memory: 35020, gen: 2},
-  "m2.4xlarge"  : { cpu:  8192, memory: 70040, gen: 2},
-  "m3.medium"   : { cpu:  1024, memory:  3840, gen: 3},
-  "m3.large"    : { cpu:  2048, memory:  7680, gen: 3},
-  "m3.xlarge"   : { cpu:  4096, memory: 15360, gen: 3},
-  "m3.2xlarge"  : { cpu:  8192, memory: 30720, gen: 3},
-  "m4.large"    : { cpu:  2048, memory:  8192, gen: 4},
-  "m4.xlarge"   : { cpu:  4096, memory: 16384, gen: 4},
-  "m4.2xlarge"  : { cpu:  8192, memory: 32768, gen: 4},
-  "m4.4xlarge"  : { cpu: 16384, memory: 65536, gen: 4},
-  "m4.10xlarge" : { cpu: 40960, memory:163840, gen: 4},
-  "c1.medium"   : { cpu:  2048, memory:  1740, gen: 1},
-  "c1.xlarge"   : { cpu:  8192, memory:  7168, gen: 1},
-  "c3.large"    : { cpu:  2048, memory:  3840, gen: 3},
-  "c3.xlarge"   : { cpu:  4096, memory:  7680, gen: 3},
-  "c3.2xlarge"  : { cpu:  8192, memory: 15360, gen: 3},
-  "c3.4xlarge"  : { cpu: 16384, memory: 30720, gen: 3},
-  "c3.8xlarge"  : { cpu: 32768, memory: 61440, gen: 3},
-  "c4.large"    : { cpu:  2048, memory:  3840, gen: 4},
-  "c4.xlarge"   : { cpu:  4096, memory:  7680, gen: 4},
-  "c4.2xlarge"  : { cpu:  8192, memory: 15360, gen: 4},
-  "c4.4xlarge"  : { cpu: 16384, memory: 30720, gen: 4},
-  "c4.8xlarge"  : { cpu: 36864, memory: 61440, gen: 4},
-  "g2.2xlarge"  : { cpu:  8192, memory: 15360, gen: 2},
-  "g2.8xlarge"  : { cpu: 32768, memory: 61440, gen: 2},
-  "r3.large"    : { cpu:  2048, memory: 15616, gen: 3},
-  "r3.xlarge"   : { cpu:  4096, memory: 31232, gen: 3},
-  "r3.2xlarge"  : { cpu:  8192, memory: 62464, gen: 3},
-  "r3.4xlarge"  : { cpu: 16384, memory:124928, gen: 3},
-  "r3.8xlarge"  : { cpu: 32768, memory:249856, gen: 3},
-  "i2.xlarge"   : { cpu:  4096, memory: 31232, gen: 2},
-  "i2.2xlarge"  : { cpu:  8192, memory: 62464, gen: 2},
-  "i2.4xlarge"  : { cpu: 16384, memory:124928, gen: 2},
-  "i2.8xlarge"  : { cpu: 32768, memory:249856, gen: 2},
-  "d2.xlarge"   : { cpu:  4096, memory: 31232, gen: 2},
-  "d2.2xlarge"  : { cpu:  8192, memory: 62464, gen: 2},
-  "d2.4xlarge"  : { cpu: 16384, memory:124928, gen: 2},
-  "d2.8xlarge"  : { cpu: 32768, memory:249856, gen: 2},
-  "hi1.4xlarge" : { cpu: 16384, memory: 61952, gen: 1},
-  "hs1.8xlarge" : { cpu: 16384, memory:119808, gen: 1},
-  "cr1.8xlarge" : { cpu: 32768, memory:249856, gen: 1},
-  "cc2.8xlarge" : { cpu: 32768, memory: 62464, gen: 1}
+  "t1.micro"    : { cpu:  1024, memory:  1024, gen: 1, ecu:   1024},
+  "t2.nano"     : { cpu:  1024, memory:   512, gen: 2, ecu:   1024},
+  "t2.micro"    : { cpu:  1024, memory:  1024, gen: 2, ecu:   1024},
+  "t2.small"    : { cpu:  1024, memory:  2048, gen: 2, ecu:   1024},
+  "t2.medium"   : { cpu:  2048, memory:  4096, gen: 2, ecu:   2048},
+  "t2.large"    : { cpu:  2048, memory:  8192, gen: 2, ecu:   2048},
+  "m1.small"    : { cpu:  1024, memory:  1740, gen: 1, ecu:   1024},
+  "m1.medium"   : { cpu:  1024, memory:  3840, gen: 1, ecu:   2048},
+  "m1.large"    : { cpu:  2048, memory:  7680, gen: 1, ecu:   4096},
+  "m1.xlarge"   : { cpu:  4096, memory: 15360, gen: 1, ecu:   8192},
+  "m2.xlarge"   : { cpu:  2048, memory: 17510, gen: 2, ecu:   6656},
+  "m2.2xlarge"  : { cpu:  4096, memory: 35020, gen: 2, ecu:  13312},
+  "m2.4xlarge"  : { cpu:  8192, memory: 70040, gen: 2, ecu:  26624},
+  "m3.medium"   : { cpu:  1024, memory:  3840, gen: 3, ecu:   3072},
+  "m3.large"    : { cpu:  2048, memory:  7680, gen: 3, ecu:   6656},
+  "m3.xlarge"   : { cpu:  4096, memory: 15360, gen: 3, ecu:  13312},
+  "m3.2xlarge"  : { cpu:  8192, memory: 30720, gen: 3, ecu:  26624},
+  "m4.large"    : { cpu:  2048, memory:  8192, gen: 4, ecu:   6656},
+  "m4.xlarge"   : { cpu:  4096, memory: 16384, gen: 4, ecu:  13312},
+  "m4.2xlarge"  : { cpu:  8192, memory: 32768, gen: 4, ecu:  26624},
+  "m4.4xlarge"  : { cpu: 16384, memory: 65536, gen: 4, ecu:  54784},
+  "m4.10xlarge" : { cpu: 40960, memory:163840, gen: 4, ecu: 127488},
+  "c1.medium"   : { cpu:  2048, memory:  1740, gen: 1, ecu:   5120},
+  "c1.xlarge"   : { cpu:  8192, memory:  7168, gen: 1, ecu:  20480},
+  "c3.large"    : { cpu:  2048, memory:  3840, gen: 3, ecu:   7168},
+  "c3.xlarge"   : { cpu:  4096, memory:  7680, gen: 3, ecu:  14336},
+  "c3.2xlarge"  : { cpu:  8192, memory: 15360, gen: 3, ecu:  28672},
+  "c3.4xlarge"  : { cpu: 16384, memory: 30720, gen: 3, ecu:  56320},
+  "c3.8xlarge"  : { cpu: 32768, memory: 61440, gen: 3, ecu: 110592},
+  "c4.large"    : { cpu:  2048, memory:  3840, gen: 4, ecu:   8192},
+  "c4.xlarge"   : { cpu:  4096, memory:  7680, gen: 4, ecu:  16384},
+  "c4.2xlarge"  : { cpu:  8192, memory: 15360, gen: 4, ecu:  31744},
+  "c4.4xlarge"  : { cpu: 16384, memory: 30720, gen: 4, ecu:  63488},
+  "c4.8xlarge"  : { cpu: 36864, memory: 61440, gen: 4, ecu: 135168},
+  "g2.2xlarge"  : { cpu:  8192, memory: 15360, gen: 2, ecu:  26624},
+  "g2.8xlarge"  : { cpu: 32768, memory: 61440, gen: 2, ecu: 106496},
+  "r3.large"    : { cpu:  2048, memory: 15616, gen: 3, ecu:   6656},
+  "r3.xlarge"   : { cpu:  4096, memory: 31232, gen: 3, ecu:  13312},
+  "r3.2xlarge"  : { cpu:  8192, memory: 62464, gen: 3, ecu:  26624},
+  "r3.4xlarge"  : { cpu: 16384, memory:124928, gen: 3, ecu:  53248},
+  "r3.8xlarge"  : { cpu: 32768, memory:249856, gen: 3, ecu: 106496},
+  "i2.xlarge"   : { cpu:  4096, memory: 31232, gen: 2, ecu:  14336},
+  "i2.2xlarge"  : { cpu:  8192, memory: 62464, gen: 2, ecu:  27648},
+  "i2.4xlarge"  : { cpu: 16384, memory:124928, gen: 2, ecu:  54272},
+  "i2.8xlarge"  : { cpu: 32768, memory:249856, gen: 2, ecu: 106496},
+  "d2.xlarge"   : { cpu:  4096, memory: 31232, gen: 2, ecu:  14336},
+  "d2.2xlarge"  : { cpu:  8192, memory: 62464, gen: 2, ecu:  28672},
+  "d2.4xlarge"  : { cpu: 16384, memory:124928, gen: 2, ecu:  57344},
+  "d2.8xlarge"  : { cpu: 32768, memory:249856, gen: 2, ecu: 118784},
+  "hi1.4xlarge" : { cpu: 16384, memory: 61952, gen: 1, ecu:  35840},
+  "hs1.8xlarge" : { cpu: 16384, memory:119808, gen: 1, ecu:  35840},
+  "cr1.8xlarge" : { cpu: 32768, memory:249856, gen: 1, ecu:  90112},
+  "cc2.8xlarge" : { cpu: 32768, memory: 62464, gen: 1, ecu:  90112}
+} 
+
+function pick_lowest_prices(prices)
+{
+  var item_map = {};
+
+  for(var i in prices)
+  {
+    var price = prices[i];
+    if (!item_map[price.type] || item_map[price.type].price > price.price)
+    {
+      item_map[price.type] = price;
+    }
+  }
+
+  var result = [];
+
+  for(var i in item_map)
+  {
+    result.push(item_map[i]);
+  }
+
+  return result;
 }
 
 function score_type(type)
@@ -82,6 +105,8 @@ function difference(v1, v2)
 
 function complete()
 {
+  prices = pick_lowest_prices(prices);
+
   prices.sort(function(a,b) {
     if (a.price < b.price) {
       return -1;
@@ -101,6 +126,7 @@ function complete()
       break;
     }
   }
+
 
   shortlist = prices.splice(0, index)
 
@@ -126,14 +152,15 @@ function complete()
   }
 
   response = {
-    Price:        String(result.price),
+    Price:        String(result.price + 0.0001),
     Zone:         String(result.zone),
     AveragePrice: String(result.average_price),
     HighLine:     String(result.high_line),
     HighTime:     String(result.high_time),
     LowLine:      String(result.low_line),
     LowTime:      String(result.low_time),
-    CpuRating:    String(typeToCapability[result.type].cpu),
+    CpuUnits:     String(typeToCapability[result.type].cpu),
+    CpuRating:    String(typeToCapability[result.type].ecu),
     MemRating:    String(typeToCapability[result.type].memory)
   }
   Cloudformation.send(request, context, Cloudformation.SUCCESS, response, "Success", result.type);
