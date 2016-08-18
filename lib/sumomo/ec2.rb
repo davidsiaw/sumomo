@@ -171,6 +171,7 @@ aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 			docker_username:"",
 			docker_email:"",
 			docker_password: "",
+			eip:nil,
 			&block)
 
 			tasks = EC2Tasks.new(@bucket_name, &block).script
@@ -201,6 +202,12 @@ start ecs
 curl http://localhost:51678/v1/metadata > /home/ec2-user/ecs_info
 
 				ECS_START
+			end
+
+			if eip
+				script += <<-EIP_ALLOCATE
+aws ec2 associate-address --region `cat /etc/aws_region` --instance-id `curl http://169.254.169.254/latest/meta-data/instance-id` --allocation-id `cat /etc/eip_allocation_id`
+				EIP_ALLOCATE
 			end
 
 			script += "\nservice spot-watcher start" if spot_price and ec2_sns_arn
@@ -248,6 +255,16 @@ curl http://localhost:51678/v1/metadata > /home/ec2-user/ecs_info
 						{
 							"Effect" => "Allow",
 							"Action" => [
+								"ec2:AllocateAddress", 
+								"ec2:AssociateAddress", 
+								"ec2:DescribeAddresses", 
+								"ec2:DisassociateAddress"
+							],
+							"Resource" => "*"
+						},
+						{
+							"Effect" => "Allow",
+							"Action" => [
 								"ecs:DeregisterContainerInstance",
 								"ecs:DiscoverPollEndpoint",
 								"ecs:Poll",
@@ -290,13 +307,12 @@ curl http://localhost:51678/v1/metadata > /home/ec2-user/ecs_info
 					}]
 			end
 
-
 			zones_used = network.azs
 			subnet_ids = network.subnets[layer].map { |x| x[:name] }
 
 			if zone
 				# if we only specified a single zone, then we have to do some processing
-				res = define_custom_resource(code: <<-CODE
+				res = define_custom_resource(name: "SubnetIdentifierCodeFor#{name}", code: <<-CODE
 					var ids = {};
 					var zones = request.ResourceProperties.SubnetZones;
 					for (var i=0;i<zones.length;i++)
@@ -345,6 +361,22 @@ curl http://localhost:51678/v1/metadata > /home/ec2-user/ecs_info
 						"TopicARN" => ec2_sns_arn
 					}
 				] if ec2_sns_arn
+
+				file "/etc/aws_region", content: "{{ region }}", context: {
+					region: ref("AWS::Region")
+				}
+
+				if ec2_sns_arn
+					file "/etc/sns_arn", content: "{{ sns_arn }}", context: {
+						sns_arn: ec2_sns_arn
+					}
+				end
+
+				if eip
+					file "/etc/eip_allocation_id", content: "{{ id }}", context: {
+						id: eip.AllocationId
+					}
+				end
 
 				if spot_price and ec2_sns_arn
 					watcher = File.read( File.join( Gem.datadir("sumomo"), "sources", "spot-watcher.sh" ) )
