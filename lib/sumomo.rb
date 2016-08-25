@@ -21,7 +21,7 @@ module Sumomo
 		"cloudformation/#{make_master_key_name(name: name)}.pem"
 	end
 
-	def self.update_stack(name:, region:, &block)
+	def self.update_stack(name:, region:, sns_arn:nil, &block)
 
 		cf = Aws::CloudFormation::Client.new(region: region)
 		s3 = Aws::S3::Client.new(region: region)
@@ -99,13 +99,14 @@ module Sumomo
 			template_url: store.url("cloudformation/template"), 
 			parameters: hidden_values,
 			capabilities: ["CAPABILITY_IAM"]
-
 		}
+
 
 		begin
 			cf.update_stack(update_options)
 		rescue => e
 			update_options[:timeout_in_minutes] = 30
+			update_options[:notification_arns] = sns_arn if sns_arn
 			cf.create_stack(update_options)
 		end
 	end
