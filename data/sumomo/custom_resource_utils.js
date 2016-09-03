@@ -9,7 +9,7 @@ Cloudformation.send = function(request, context, responseStatus, responseData, r
     var responseBody = JSON.stringify({
         Status: responseStatus,
         Reason: reason + " Log Stream: " + context.logStreamName,
-        PhysicalResourceId: physicalResourceId || context.logStreamName,
+        PhysicalResourceId: physicalResourceId === undefined ? context.logStreamName : physicalResourceId,
         StackId: request.StackId,
         RequestId: request.RequestId,
         LogicalResourceId: request.LogicalResourceId,

@@ -6,6 +6,7 @@ require 'yaml'
 
 require "sumomo/version"
 require 'sumomo/ec2'
+require 'sumomo/ecs'
 require 'sumomo/stack'
 require 'sumomo/network'
 require 'sumomo/momo_extensions/resource'
@@ -105,8 +106,13 @@ module Sumomo
 		begin
 			cf.update_stack(update_options)
 		rescue => e
-			update_options[:timeout_in_minutes] = 30
-			cf.create_stack(update_options)
+			if e.message.end_with? "does not exist"
+				update_options[:timeout_in_minutes] = 30
+				cf.create_stack(update_options)
+			else
+				p e
+				puts "Error: #{e.message}"
+			end
 		end
 	end
 
