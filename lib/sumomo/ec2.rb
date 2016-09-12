@@ -126,6 +126,7 @@ module Sumomo
 			def initialize(bucket_name, &block)
 				@script = ""
 				@bucket_name = bucket_name
+				@tags = []
 				instance_eval(&block) if block
 			end
 
@@ -144,6 +145,103 @@ aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 			def script
 				@script
 			end
+
+			def tags
+				@tags
+			end
+
+			def tag(name, value)
+				@tags << [name, value]
+			end
+		end
+
+		def make_spotter(
+			price:,
+			network:,
+			layer:,
+			ec2_sns_arn:nil,
+			ecs_cluster:nil,
+			eip:nil,
+			&block)
+			update_time = Time.now.to_i
+
+			spot = make "Custom::SelectSpot" do
+				DateTime update_time
+				ExcludeString "1.,2.,small,micro"
+				LookBack 3
+				TargetPrice price
+			end 
+
+			switcher1_src = define_custom_resource(name: "ASGSelector1", code: <<-CODE
+
+				store.get("num1", function(num) {
+					num = parseInt(num);
+					if (request.RequestType != "Delete")
+					{
+						store.put("num1", String(num+1));
+					}
+					else
+					{
+						store.put("num1", String(0));
+					}
+
+					Cloudformation.send(request, context, Cloudformation.SUCCESS, {Num: String(num)}, "Success", String(num % 2));
+				}, function() {
+					store.put("num1", String(1));
+					Cloudformation.send(request, context, Cloudformation.SUCCESS, {Num: 1}, "Success", String(1));
+				});
+			CODE
+			)
+
+			switcher2_src = define_custom_resource(name: "ASGSelector2", code: <<-CODE
+				store.get("num2", function(num) {
+					num = parseInt(num);
+					if (request.RequestType != "Delete")
+					{
+						store.put("num2", String(num+1));
+					}
+					else
+					{
+						store.put("num1", String(0));
+					}
+
+					Cloudformation.send(request, context, Cloudformation.SUCCESS, {Num: String(num)}, "Success", String((num + 1) % 2));
+				}, function() {
+					store.put("num2", String(1));
+					Cloudformation.send(request, context, Cloudformation.SUCCESS, {Num: 1}, "Success", String(0));
+				});
+			CODE
+			)
+
+			size_1 = make_custom switcher1_src, name: "ASGSelector1Value" do
+				DateTime update_time
+			end
+
+			size_2 = make_custom switcher2_src, name: "ASGSelector2Value" do
+				DateTime update_time
+			end
+
+			make_autoscaling_group(
+				type: spot,
+				network: network, 
+				layer: "ecs", 
+				zone: spot.Zone, 
+				spot_price: price, 
+				min_size: size_1,
+				ec2_sns_arn: ec2_sns_arn,
+				ecs_cluster: ecs_cluster,
+				eip: eip, &block)
+
+			make_autoscaling_group(
+				type: spot,
+				network: network,
+				layer: "ecs", 
+				zone: spot.Zone, 
+				spot_price: price, 
+				min_size: size_2,
+				ec2_sns_arn: ec2_sns_arn,
+				ecs_cluster: ecs_cluster,
+				eip: eip)
 		end
 
 		def make_autoscaling_group(
@@ -163,8 +261,8 @@ aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 			egress:nil,
 			machine_tag:nil,
 			ec2_sns_arn:nil,
-			ami_name:,
-			ebs_root_device:,
+			ami_name:nil,
+			ebs_root_device:nil,
 			spot_price:nil,
 			script: nil,
 			ecs_cluster: nil,
@@ -174,7 +272,23 @@ aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 			eip:nil,
 			&block)
 
-			tasks = EC2Tasks.new(@bucket_name, &block).script
+			if ami_name == nil
+
+				@ami_lookup_resources ||= {}
+
+				if !@ami_lookup_resources[type]
+					@ami_lookup_resources[type] = make "Custom::AMILookup" do
+						InstanceType type
+					end
+				end
+
+				ami_name = @ami_lookup_resources[type]
+				ebs_root_device = @ami_lookup_resources[type].RootDeviceName if ebs_root_device == nil
+			end
+
+			tasks = EC2Tasks.new(@bucket_name, &block)
+
+			task_script = tasks.script
 
 			ingress ||= [ allow(:all) ]
 			egress ||= [ allow(:all) ]
@@ -184,7 +298,7 @@ aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 
 			bucket_name = @bucket_name
 
-			script += "\n#{tasks}\n"
+			script += "\n#{task_script}\n"
 
 			if ecs_cluster
 				script += <<-ECS_START
@@ -405,6 +519,11 @@ ECS_ENGINE_AUTH_DATA={"https://index.docker.io/v1/":{"username":"{{docker_userna
 				end
 
 				tag "Name", machine_tag, propagate_at_launch: true
+
+				tasks.tags.each do |t|
+					tag t[0], t[1], propagate_at_launch: true
+				end
+
 			end
 
 			asg
