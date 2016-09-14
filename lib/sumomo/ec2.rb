@@ -132,13 +132,13 @@ module Sumomo
 
 			def mkdir(name)
 				@script += <<-SNIPPET
-mkdir -p #{name}
+sudo mkdir -p #{name}
 				SNIPPET
 			end
 
 			def download_file(name, local_path)
 				@script += <<-SNIPPET
-aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
+sudo aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 				SNIPPET
 			end
 
