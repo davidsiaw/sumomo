@@ -1,3 +1,3 @@
 module Sumomo
-  VERSION = "0.3.5"
+  VERSION = "0.2.1"
 end
