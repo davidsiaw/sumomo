@@ -1,3 +1,42 @@
 #!/usr/bin/env ruby
 
 require "trollop"
+require "sumomo"
+require "yaml"
+
+SUB_COMMANDS = %w(delete create update)
+global_opts = Trollop::options do
+  banner <<-USAGE
+  Sumomo v#{Sumomo::VERSION}
+
+  Usage: sumomo [options] <create|update|delete|outputs> <stackname>
+  USAGE
+
+  opt :region, "AWS region to use", type: :string, default: "ap-northeast-1"
+
+  stop_on SUB_COMMANDS
+end
+
+cmd = ARGV.shift # get the subcommand
+
+cmd_opts = case cmd
+when "delete"
+	Sumomo::delete_stack(name: ARGV[0], region: global_opts[:region])
+
+when "create", "update"
+	local_opts = Trollop::options do
+		opt :filename, "File that describes the stack", type: :string, required: true
+	end
+	Sumomo::create_stack(name: ARGV[0], region: global_opts[:region]) do
+		eval File.read(local_opts[:filename]), local_opts[:filename]
+	end
+
+when "outputs"
+	puts "Outputs for stack #{ARGV[0]}"
+	puts Sumomo::get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
+
+else
+	Trollop::die "Unknown subcommand #{cmd.inspect}"
+end
+
+Sumomo::wait_for_stack(name: ARGV[0], region: global_opts[:region])
