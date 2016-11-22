@@ -25,10 +25,11 @@ when "delete"
 
 when "create", "update"
 	local_opts = Trollop::options do
-		opt :filename, "File that describes the stack", type: :string, required: true
+		opt :filename, "File that describes the stack", type: :string, default: "Sumomofile"
 	end
 	Sumomo::create_stack(name: ARGV[0], region: global_opts[:region]) do
-		eval File.read(local_opts[:filename]), local_opts[:filename]
+		proc = Proc.new {}
+		eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
 	end
 
 when "outputs"
