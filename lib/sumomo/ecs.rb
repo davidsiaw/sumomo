@@ -44,30 +44,52 @@ module Sumomo
 						}
 					}
 
-					definition["MountPoints"] = container[:files].map do |file, destination|
+					if container[:files]
+						definition["MountPoints"] = container[:files].map do |file, destination|
 
-						s3_location = "container_files/#{sluggify(service_name)}/#{definition["Name"]}/#{file}"
-						volume_name = sluggify("#{definition["Name"].underscore}_#{destination}").camelize
+							s3_location = "container_files/#{sluggify(service_name)}/#{definition["Name"]}/#{file}"
+							volume_name = sluggify("#{definition["Name"].underscore}_#{destination}").camelize
 
-						upload_file s3_location, File.read(file)
+							upload_file s3_location, File.read(file)
 
-						machine_volume_locations[s3_location] = "/opt/s3/#{s3_location}"
+							machine_volume_locations[s3_location] = "/opt/s3/#{s3_location}"
 
-						volumes << {
-							"Name" => volume_name,
-							"Host" => { "SourcePath" => machine_volume_locations[s3_location] }
-						}
+							volumes << {
+								"Name" => volume_name,
+								"Host" => { "SourcePath" => machine_volume_locations[s3_location] }
+							}
 
-						{
-							"ContainerPath" => destination,
-							"SourceVolume" => volume_name
-						}
+							{
+								"ContainerPath" => destination,
+								"SourceVolume" => volume_name
+							}
+						end
+						container.delete(:files)
 					end
 
-					container.each do |key, value|
-						if key != :files
-							definition["#{key}".camelize] = value
+					if container[:ports]
+						definition["PortMappings"] = container[:ports].map do |from_port, to_port|
+							{
+								"ContainerPort" => from_port,
+								"HostPort" => to_port
+							}
 						end
+						container.delete(:ports)
+					end
+
+					if container[:envvars]
+						definition["Environment"] = container[:envvars].map do |var_name, var_value|
+							{
+								"Name" => var_name,
+								"Value" => var_value
+							}
+						end
+						container.delete(:envvars)
+					end
+
+
+					container.each do |key, value|
+						definition["#{key}".camelize] = value
 					end
 
 					definition
