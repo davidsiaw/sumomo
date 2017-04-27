@@ -10,7 +10,7 @@ module Sumomo
 			end)
 		end
 
-		def allow(thing)
+		def allow_port(thing)
 			if (thing == :all)
 				{
 					"IpProtocol" => "-1",
@@ -270,6 +270,7 @@ sudo aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 			docker_email:"",
 			docker_password: "",
 			eip:nil,
+			policies:[],
 			&block)
 
 			if ami_name == nil
@@ -290,8 +291,8 @@ sudo aws s3 cp s3://#{@bucket_name}/uploads/#{name} #{local_path}
 
 			task_script = tasks.script
 
-			ingress ||= [ allow(:all) ]
-			egress ||= [ allow(:all) ]
+			ingress ||= [ allow_port(:all) ]
+			egress ||= [ allow_port(:all) ]
 			machine_tag ||= ref("AWS::StackName")
 			name ||= make_default_resource_name("AutoScalingGroup")
 			script ||= ""
@@ -393,7 +394,7 @@ aws ec2 associate-address --region `cat /etc/aws_region` --instance-id `curl htt
 								"logs:PutLogEvents"
 							],
 							"Resource": "*"
-						}]
+						}] + policies
 					}
 				}]
 			end

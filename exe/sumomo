@@ -13,9 +13,15 @@ global_opts = Trollop::options do
   USAGE
 
   opt :region, "AWS region to use", type: :string, default: "ap-northeast-1"
+  opt :profile, "AWS credential profile to use", type: :string, default: "default"
 
   stop_on SUB_COMMANDS
 end
+
+ENV["AWS_PROFILE"] = global_opts[:profile]
+
+puts "Using profile:"
+p ENV["AWS_PROFILE"]
 
 cmd = ARGV.shift # get the subcommand
 
