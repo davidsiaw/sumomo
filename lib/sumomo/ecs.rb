@@ -44,9 +44,13 @@ module Sumomo
 			end
 		end
 
-		def make_ecs_cluster(name:make_default_resource_name("ECSCluster"),services:[],machine_config:{},network:,log_retention:30)
+		def make_ecs_cluster(name:make_default_resource_name("ECSCluster"),services:[],machine_config:{},network:,log_retention:30,dependencies:[])
 
-			ecs = make "AWS::ECS::Cluster", name: "#{name}"
+			ecs = make "AWS::ECS::Cluster", name: "#{name}" do
+				dependencies.each do |x|
+					depends_on x
+				end
+			end
 
 			volumes = []
 			machine_volume_locations = {}
