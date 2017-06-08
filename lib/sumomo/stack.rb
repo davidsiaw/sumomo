@@ -17,6 +17,7 @@ module Sumomo
 		end
 
 		def upload_file(name,content)
+			puts "Uploaded #{name}"
 			@store.set_raw("uploads/#{name}", content)
 		end
 
@@ -139,6 +140,11 @@ module Sumomo
 									"Effect" => "Allow",
 									"Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
 									"Resource" => "arn:aws:s3:::#{bucket_name}/*"
+								},
+								{
+									"Effect" => "Allow",
+									"Action" => ["cloudfront:CreateCloudFrontOriginAccessIdentity", "cloudfront:DeleteCloudFrontOriginAccessIdentity"],
+									"Resource" => "*"
 								}]
 							}
 						}
