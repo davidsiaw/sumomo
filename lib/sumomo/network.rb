@@ -38,9 +38,47 @@ module Sumomo
 				GatewayId gateway
 			end
 
+			last_unused_number = 0
+
+			subnet_numbers = []
+
+			#load current config
+			number_hash = {}
+			subnet_hash = {}
+
+			ec2 = Aws::EC2::Client.new(region: @region)
+			ec2_subnets = ec2.describe_subnets().subnets
+			ec2_subnets.each do |subnet|
+				if subnet.tags.select {|x| x.key == "aws:cloudformation:stack-name" && x.value == @bucket_name}.length == 1
+					layer = /^#{@bucket_name}-(?<layer_name>.+)-[a-z]+$/.match(subnet.tags.select{|x| x.key == "Name"}.first.value)[:layer_name]
+					zone = subnet.availability_zone
+					number = /^10.0.(?<num>[0-9]+).0/.match(subnet.cidr_block)[:num].to_i
+
+					key = "#{layer}/#{zone}"
+					number_hash[number] = key
+					subnet_hash[key] = number
+				end
+			end
+
+			# assign numbers to unassigned subnets
+			layers.product(zones).each do |e|
+				key = "#{e[0]}/#{e[1]}"
+				if !subnet_hash.has_key?(key)
+					loop do
+						break if !number_hash.has_key?(last_unused_number)
+						last_unused_number += 1
+					end
+					number_hash[last_unused_number] = key
+					subnet_hash[key] = last_unused_number
+					subnet_numbers << [e, last_unused_number]
+				else
+					subnet_numbers << [e, subnet_hash[key]]
+				end
+			end
+
 			subnets = {}
 
-			layers.product(zones).each_with_index do |e, subnet_number|
+			subnet_numbers.each do |e, subnet_number|
 				layer = e[0]
 				zone = e[1]
 

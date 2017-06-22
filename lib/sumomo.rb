@@ -91,6 +91,8 @@ module Sumomo
 
 		end.templatize
 
+		
+
 		#puts JSON.parse(template).to_yaml
 		
 		store.set_raw("cloudformation/template", template)
