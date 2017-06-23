@@ -145,6 +145,11 @@ module Sumomo
 									"Effect" => "Allow",
 									"Action" => ["cloudfront:CreateCloudFrontOriginAccessIdentity", "cloudfront:DeleteCloudFrontOriginAccessIdentity"],
 									"Resource" => "*"
+								},
+								{
+									"Effect" => "Allow",
+									"Action" => ["apigateway:*", "cloudfront:UpdateDistribution"],
+									"Resource" => "*"
 								}]
 							}
 						}
