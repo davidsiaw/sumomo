@@ -91,6 +91,8 @@ module Sumomo
 
 		end.templatize
 
+		# TODO if the template is too big, split it into nested templates
+
 		#puts JSON.parse(template).to_yaml
 		
 		store.set_raw("cloudformation/template", template)
@@ -101,7 +103,6 @@ module Sumomo
 			parameters: hidden_values,
 			capabilities: ["CAPABILITY_IAM"]
 		}
-
 
 		begin
 			cf.update_stack(update_options)

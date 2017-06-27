@@ -17,9 +17,8 @@ module Sumomo
 		end
 
 		def upload_file(name,content)
-			print "File: #{name} ... "
 			@store.set_raw("uploads/#{name}", content)
-			puts "Uploaded"
+			puts "Uploaded #{name}"
 		end
 
 		def make_lambda(name: nil, files:[{name:"index.js", code:""}],
@@ -141,6 +140,16 @@ module Sumomo
 									"Effect" => "Allow",
 									"Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
 									"Resource" => "arn:aws:s3:::#{bucket_name}/*"
+								},
+								{
+									"Effect" => "Allow",
+									"Action" => ["cloudfront:CreateCloudFrontOriginAccessIdentity", "cloudfront:DeleteCloudFrontOriginAccessIdentity"],
+									"Resource" => "*"
+								},
+								{
+									"Effect" => "Allow",
+									"Action" => ["apigateway:*", "cloudfront:UpdateDistribution"],
+									"Resource" => "*"
 								}]
 							}
 						}
