@@ -17,7 +17,9 @@ module Sumomo
 		end
 
 		def upload_file(name,content)
+			print "File: #{name} ... "
 			@store.set_raw("uploads/#{name}", content)
+			puts "Uploaded"
 		end
 
 		def make_lambda(name: nil, files:[{name:"index.js", code:""}],
