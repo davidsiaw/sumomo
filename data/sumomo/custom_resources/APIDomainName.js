@@ -92,7 +92,7 @@ if (request.RequestType == "Delete")
 {
   deleteName(function(name)
   {
-    Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "");
+    Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "0");
   }, 
   function(err)
   {

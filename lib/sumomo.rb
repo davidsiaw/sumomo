@@ -3,6 +3,7 @@ require 's3cabinet'
 require 'aws-sdk'
 require 'zip'
 require 'yaml'
+require "bunny/tsort"
 
 require "sumomo/version"
 require 'sumomo/ec2'
@@ -13,6 +14,267 @@ require 'sumomo/momo_extensions/resource'
 require 'sumomo/momo_extensions/stack'
 
 module Sumomo
+
+	class SplittableTemplate
+
+		attr_accessor :child_templates, :modified_resouces, :add_parameters, :add_outputs
+
+		def initialize(template_str)
+			@template = JSON.parse(template_str)
+
+			@child_templates = [] # child templates
+			@modified_resouces = {} # modified resources
+			@add_parameters = {} # additional parameters from parent
+			@add_outputs = {} # additional outputs to parent
+
+			@inparams = {} # map from resource name to parameter names
+			@outparams = {} # map from expression to new expression for getting outputs
+			@params_by_resource = {} # map from resource name to parameter expression
+			@expr_to_modified = {} # expr to modified expression
+
+			@analysis = analyse
+		end
+
+		def add_child_template(parent)
+			templ = {}
+			parent.keys.each do |x|
+				templ[x] = {}
+			end
+			templ["AWSTemplateFormatVersion"] = parent["AWSTemplateFormatVersion"]
+			@child_templates << { 
+				name: "ChildTemplate#{@child_templates.count+1}",
+				template: SplittableTemplate.new(templ.to_json),
+				resource: {
+					"Type" => "AWS::CloudFormation::Stack",
+					"Properties" => {
+						"Parameters" => {},
+						"TemplateURL" => ""
+					}
+				}
+			}
+		end
+
+		def move_to_child(res_name)
+
+			child_template = @child_templates.last
+			if child_template == nil
+				# no available child template
+				add_child_template(@template)
+				child_template = @child_templates.last
+			end
+
+			@params_by_resource[res_name] = {}
+
+			# add resource to child
+			child_template[:template].modified_resouces[res_name] = child_copy(@template["Resources"][res_name], res_name)
+
+			# remove our resource
+			@modified_resouces[res_name] = :delete
+
+			# add parameters
+			@params_by_resource[res_name].each do |k,v|
+				child_template[:resource]["Properties"]["Parameters"][k] = v
+				child_template[:template].add_parameters[k] = {
+					"Type" => "String",
+					"NoEcho" => true
+				}
+			end
+
+			# add outputs and references
+			@analysis[:resource_to_expr_hash][res_name].each do |expr|
+				child_output_name = "ChildOutput#{@outparams.count+1}"
+
+				@outparams[expr] = { "Fn::GetAtt" => [ child_template[:name], child_output_name ] } if !@outparams.has_key?(expr)
+
+				child_template[:template].add_outputs[child_output_name] = {
+					"Value" => expr
+				}
+			end
+
+
+		end
+
+		def child_copy(expr, res_name)
+			if expr.is_a?(Hash)
+				if (expr.has_key?("Ref") && !expr["Ref"].start_with?("AWS::")) || expr.has_key?("Fn::GetAtt")
+					@inparams[expr] = "ParentValue#{@inparams.count + 1}" if !@inparams.has_key?(expr)
+					@params_by_resource[res_name][@inparams[expr]] = expr
+					{ "Ref" => @inparams[expr] }
+				else
+					expr.map { |k,v| [k, child_copy(v, res_name)] }.to_h
+				end
+			elsif expr.is_a?(Array)
+				expr.map{ |x| child_copy(x, res_name) }.to_a
+			else
+				Marshal.load(Marshal.dump(expr))
+			end
+
+		end
+
+		def result_template
+			res = @template.clone
+
+			@modified_resouces.each do |k,v|
+				if v == :delete
+					res["Resources"].delete(k)
+				else
+					res["Resources"][k] = v
+				end
+			end
+
+			@child_templates.each do |t|
+				res["Resources"][t[:name]] = t[:resource]
+			end
+
+			@add_parameters.each do |k,v|
+				res["Parameters"][k] = v
+			end
+
+			@add_outputs.each do |k,v|
+				res["Outputs"][k] = v
+			end
+
+			res["Resources"].each do |res_name, resource|
+				res["Resources"][res_name] = fix_exprs(resource)
+			end
+
+			res["Outputs"].each do |output_name, output|
+				res["Outputs"][output_name]["Value"] = fix_exprs(output["Value"])
+			end
+
+			res
+		end
+
+		def fix_exprs(expr)
+
+			if expr.is_a?(Hash)
+				if @outparams.has_key?(expr)
+					@outparams[expr]
+				else
+					expr
+				end
+			elsif expr.is_a?(Array)
+				expr.map{ |x| fix_exprs(x) }.to_a
+			else
+				expr
+			end
+
+		end
+
+		def find_ref(expr)
+			if expr.is_a?(Hash)
+				if expr.has_key?("Ref") || expr.has_key?("Fn::GetAtt")
+					[expr]
+				else
+					expr.values.map{ |x| find_ref(x) }.flatten
+				end
+			elsif expr.is_a?(Array)
+				expr.map{ |x| find_ref(x) }.flatten
+			else
+				[]
+			end
+		end
+
+		def analyse
+
+			ref_exprs = @template["Resources"].map do |name, value|
+				ref_expr_array = []
+				value["Properties"].each do |propkey, propval|
+					ref_expr_array += find_ref(propval)
+				end
+				[name, ref_expr_array]
+			end.to_h
+
+			ref_exprs["O:Output"] = []
+			@template["Outputs"].each do |name, expr|
+				ref_exprs["O:Output"] += find_ref(expr)
+			end
+
+			# make dependency graph
+			dep_graph = {}
+			expr_hash = {}
+			expr_resource_hash = {}
+
+			resource_to_expr_hash = {}
+
+			ref_exprs.each do |res_name, exprs|
+				dep_graph[res_name] = {}
+				exprs.each do |expr|
+
+					referenced_resource = nil
+					if expr["Ref"]
+						referenced_resource = expr["Ref"]
+					elsif expr["Fn::GetAtt"]
+						referenced_resource = expr["Fn::GetAtt"][0]
+					end
+					dep_graph[res_name][referenced_resource] = true if referenced_resource
+
+					expr_hash[expr] = 0 if !expr_hash.has_key?(expr)
+					expr_hash[expr] += 1
+
+					expr_resource_hash[expr] = {} if !expr_resource_hash.has_key?(expr)
+					expr_resource_hash[expr][res_name] = true
+
+					resource_to_expr_hash[referenced_resource] = [] if !resource_to_expr_hash.has_key?(referenced_resource)
+					resource_to_expr_hash[referenced_resource] << expr
+
+				end
+				dep_graph[res_name] = dep_graph[res_name].
+					keys.
+					select{|x| !x.start_with?("AWS::")}.
+					map{|x| @template["Parameters"].has_key?(x) ? "P:#{x}" : x }
+			end
+
+
+			# reverse graph
+			rev_dep_graph = {}
+
+			dep_graph.each do |res_name,parents|
+				rev_dep_graph[res_name] = {} if !rev_dep_graph.has_key?(res_name)
+				parents.each do |parent|
+					rev_dep_graph[parent] = {} if !rev_dep_graph.has_key?(parent)
+					rev_dep_graph[parent][res_name] = true
+				end
+			end
+
+			rev_dep_graph.each do |res_name, dep_hash|
+				rev_dep_graph[res_name] = dep_hash.keys
+			end
+
+			#puts "Dep graph"
+			#p dep_graph
+
+			#puts "Rev dep graph"
+			#p rev_dep_graph
+
+			dep_count = {}
+			@template["Resources"].keys.each do |k|
+				dep_count[k] = rev_dep_graph[k].count + dep_graph[k].count
+			end
+
+			#p dep_count.to_a.sort_by{|x| x[1]}
+
+			#puts Bunny::Tsort.tsort(dep_graph).map{|x| "#{x.inspect}\n"}
+
+			#p template["Resources"].count
+
+			#puts expr_resource_hash.to_yaml
+
+			{
+				ref_exprs: ref_exprs,
+				dep_graph: dep_graph,
+				rev_dep_graph: rev_dep_graph,
+				dep_count: dep_count,
+				expr_hash: expr_hash,
+				expr_resource_hash: expr_resource_hash,
+				resource_to_expr_hash: resource_to_expr_hash,
+				layers: Bunny::Tsort.tsort(dep_graph),
+				res_count: @template["Resources"].count
+			}
+		end
+	end
+
+
 
 	def self.make_master_key_name(name:)
 		"#{name}_master_key"
@@ -27,6 +289,12 @@ module Sumomo
 		cf = Aws::CloudFormation::Client.new(region: region)
 		s3 = Aws::S3::Client.new(region: region)
 		ec2 = Aws::EC2::Client.new(region: region)
+
+		limits = {
+			resources: 6,
+			parameters: 3,
+			outputs: 3
+		}
 
 		begin
 			s3.head_bucket(bucket: name)
@@ -92,6 +360,16 @@ module Sumomo
 		end.templatize
 
 		# TODO if the template is too big, split it into nested templates
+		splitter = SplittableTemplate.new(template)
+
+
+			splitter.move_to_child("DeployTime2")
+
+			puts splitter.result_template.to_yaml
+			splitter.child_templates.each do |t|
+				puts t[:template].result_template.to_yaml
+			end
+			exit(1)
 
 		#puts JSON.parse(template).to_yaml
 		
