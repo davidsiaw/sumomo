@@ -160,6 +160,10 @@ if (request.RequestType == "Delete")
 {
   destroy(request.ResourceProperties.DomainName, function()
   {
-    Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "0");
-  }, fail);
+    Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "(deleted)");
+  }, 
+  function()
+  {
+    Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "(don't care)");
+  });
 }
