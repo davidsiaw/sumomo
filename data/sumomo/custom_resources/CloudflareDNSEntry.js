@@ -18,7 +18,7 @@ email = request.ResourceProperties.Email
 domain = request.ResourceProperties.Domain
 entry = request.ResourceProperties.Entry
 
-for (var type in valid_types)
+for (var index in valid_types)
 {
     var type = valid_types[index];
 	if (request.ResourceProperties[type])
