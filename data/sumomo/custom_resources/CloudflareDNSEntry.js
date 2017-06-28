@@ -2,17 +2,33 @@
 // Email: Cloudflare API email
 // Domain: Cloudflare domain
 // Entry: DNS entry text
+
+// A: The A record
 // CNAME: The CNAME record
-// return Record ID of the CNAME record
+// or one of A, AAAA, CNAME, TXT, SRV, LOC, MX, NS, SPF
+
+// return Record ID of the DNS record
 
 var querystring = require('querystring');
 var https = require('https');
+var valid_types = ["A", "AAAA", "CNAME", "TXT", "SRV", "LOC", "MX", "NS", "SPF"];
 
 key = request.ResourceProperties.Key
 email = request.ResourceProperties.Email
 domain = request.ResourceProperties.Domain
 entry = request.ResourceProperties.Entry
-cname = request.ResourceProperties.Cname
+
+for (var type in valid_types)
+{
+    var type = valid_types[index];
+	if (request.ResourceProperties[type])
+	{
+		entry_type = type;
+		cname = request.ResourceProperties[type];
+		break;
+	}
+}
+
 
 function get(path, query, on_complete)
 {
@@ -164,7 +180,7 @@ if (request.RequestType == "Create") {
 		{
 			if (data.length == 0)
 			{
-				create_cname_dns_record(id, "CNAME", entry, cname, function(data) {
+				create_cname_dns_record(id, entry_type, entry, cname, function(data) {
 					console.log("CREATE RECORD: " + JSON.stringify(data));
 					if (data.result)
 					{
@@ -179,6 +195,10 @@ if (request.RequestType == "Create") {
 					}
 					else
 					{
+						console.log("failed to create", entry_type);
+						console.log(id);
+						console.log(entry);
+						console.log(cname);
 						send_failure(JSON.stringify(data));
 					}
 				});

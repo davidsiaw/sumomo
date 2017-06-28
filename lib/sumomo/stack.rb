@@ -57,6 +57,13 @@ module Sumomo
 				Timeout timeout
 				Role role || exec_role.Arn
 			end
+
+			log_group = make "AWS::Logs::LogGroup", name: "#{name}LogGroup" do
+				LogGroupName call("Fn::Join", "", ["/aws/lambda/", fun])
+				RetentionInDays 30
+			end
+
+			fun
 		end
 
 		def define_custom_resource(name: nil,code:)
@@ -128,7 +135,7 @@ module Sumomo
 								"Version" => "2012-10-17",
 								"Statement" => [{
 									"Effect" => "Allow",
-									"Action" => ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+									"Action" => ["logs:CreateLogStream","logs:PutLogEvents"],
 									"Resource" => "arn:aws:logs:*:*:*"
 								},
 								{
@@ -149,6 +156,11 @@ module Sumomo
 								{
 									"Effect" => "Allow",
 									"Action" => ["apigateway:*", "cloudfront:UpdateDistribution"],
+									"Resource" => "*"
+								},
+								{
+									"Effect" => "Allow",
+									"Action" => ["acm:RequestCertificate", "acm:DeleteCertificate", "acm:DescribeCertificate"],
 									"Resource" => "*"
 								}]
 							}

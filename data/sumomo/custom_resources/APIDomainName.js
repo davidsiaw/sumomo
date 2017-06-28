@@ -4,13 +4,18 @@ var params = {
   domainName: request.ResourceProperties.DomainName
 }
 
-if (request.ResourceProperties.CertificateArn)
-{
-  params.certificateArn = request.ResourceProperties.CertificateArn;
-}
-
 function createName(onSuccess, onFail)
 {
+  if (request.ResourceProperties.CertificateArn)
+  {
+    params.certificateArn = request.ResourceProperties.CertificateArn;
+  }
+  else
+  {
+    Cloudformation.send(request, context, Cloudformation.FAILED, {}, "Parameter CertificateArn is missing");
+    return;
+  }
+
   apigateway.createDomainName(params, function(err, data)
   {
     if (err)
@@ -20,7 +25,7 @@ function createName(onSuccess, onFail)
     }
     else
     {
-      store.put("domainName", request.ResourceProperties.DomainName, function()
+      store.put(request.ResourceProperties.DomainName, request.ResourceProperties.DomainName, function()
       {
         onSuccess(data);
       }, 
@@ -34,7 +39,7 @@ function createName(onSuccess, onFail)
 
 function deleteName(onSuccess, onFail)
 {
-  store.get("domainName", function(name)
+  store.get(request.ResourceProperties.DomainName, function(name)
   {
     apigateway.deleteDomainName({
       domainName: name
@@ -71,7 +76,7 @@ if (request.RequestType == "Create")
 
 if (request.RequestType == "Update")
 {
-  deleteName(function(name)
+  if (request.OldResourceProperties.DomainName !== request.ResourceProperties.DomainName)
   {
     createName(function(data)
     {
@@ -81,11 +86,7 @@ if (request.RequestType == "Update")
     {
       Cloudformation.send(request, context, Cloudformation.FAILED, {}, "Error: " + err);
     });
-  }, 
-  function(err)
-  {
-    Cloudformation.send(request, context, Cloudformation.FAILED, {}, "Error: " + err);
-  });
+  }
 }
 
 if (request.RequestType == "Delete")
