@@ -5,6 +5,8 @@ require 'zip'
 require 'yaml'
 
 require "sumomo/version"
+require 'sumomo/api'
+require 'sumomo/dns'
 require 'sumomo/ec2'
 require 'sumomo/ecs'
 require 'sumomo/stack'

@@ -17,6 +17,8 @@ key = request.ResourceProperties.Key
 email = request.ResourceProperties.Email
 domain = request.ResourceProperties.Domain
 entry = request.ResourceProperties.Entry
+entry_type = "CNAME"
+cname = ""
 
 for (var index in valid_types)
 {
@@ -199,6 +201,8 @@ if (request.RequestType == "Create") {
 						console.log(id);
 						console.log(entry);
 						console.log(cname);
+						data.inputs = request.ResourceProperties;
+						data.inputs["Key"] = "****";
 						send_failure(JSON.stringify(data));
 					}
 				});
@@ -219,7 +223,7 @@ if (request.RequestType == "Update") {
 	load_data(function(domain_id, record_id) {
 
 		delete_cname_dns_record(domain_id, record_id, function() {
-			create_cname_dns_record(domain_id, "CNAME", entry, cname, function(data) {
+			create_cname_dns_record(domain_id, entry_type, entry, cname, function(data) {
 				console.log(data);
 				save_data(domain_id, data.result.id, 
 					function() {
