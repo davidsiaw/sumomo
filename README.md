@@ -71,6 +71,34 @@ end
 Sumomo::wait_for_stack(name: "mystack", region: "ap-northeast-1")
 ```
 
+## Features
+
+You can make apis with this now
+
+```ruby
+
+api = make_api "test2.shinonome.astrobunny.net",
+    name: "TestGenAPI",
+    cert: certificate,
+    dns: cloudflare_dns(key: key, email: email) do
+
+    GET "/page/:pageid", :pageid, <<-SCRIPT
+        respond_with ({message: pageid, params: params});
+    SCRIPT
+
+    GET "/best_girl", <<-SCRIPT
+        respond_with ({best_girl_is: "Ruby"});
+    SCRIPT
+
+    GET "/*", <<-SCRIPT
+        respond_with ({message: "Hello!"});
+    SCRIPT
+
+end
+
+output "APIURL", api
+```
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
