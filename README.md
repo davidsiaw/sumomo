@@ -72,6 +72,26 @@ Sumomo::wait_for_stack(name: "mystack", region: "ap-northeast-1")
 ```
 
 ## Features
+You can make a server
+
+```ruby
+network = make_network(layers: [:web, :db])
+
+eip = make "AWS::EC2::EIP"
+
+make_autoscaling_group(
+    network: network,
+    layers: :web,
+    eip: eip,
+    type: "c3.xlarge",
+    vol_size: 15, # GB,
+    script: <<-SCRIPT
+        yum install git gcc g++
+        echo "hello world" >> ~/hello
+    SCRIPT
+)
+
+```
 
 You can make apis with this now
 
