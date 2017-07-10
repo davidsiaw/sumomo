@@ -77,7 +77,7 @@ You can make apis with this now
 
 ```ruby
 
-api = make_api "test2.shinonome.astrobunny.net",
+api = make_api "test2.astrobunny.net",
     name: "TestGenAPI",
     cert: certificate,
     dns: cloudflare_dns(key: key, email: email) do
