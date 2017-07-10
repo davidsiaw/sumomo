@@ -1,235 +1,239 @@
 
 module Sumomo
-	module Stack
+  module Stack
 
-		
-		class APIGenerator
-		  def initialize(&block)
-		    @methods = {}
-		    instance_eval(&block)
-		  end
 
-		  def method_missing(name, *args, &block)
-		    "#{name}".split("_").each do |meth|
-		      valid_methods = ["GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"]
-		      if valid_methods.include?("#{meth}")
-		        path = args[0]
-		        @methods[path] = {} if !@methods.has_key?(path)
-		        
-		        @methods[path][meth] = { script: args.last, params: args.select{|arg| arg.is_a?(Symbol) && /\A[a-zA-Z\-0-9_]+\Z/.match("#{arg}") } }
-		      else
-		        super
-		      end
-		    end
-		  end
+    class APIGenerator
+      def initialize(&block)
+        @methods = {}
+        instance_eval(&block)
+      end
 
-		  def generate
-		    result = ""
-		    @methods.each do |path, resource|
-		        resource.each do |method, method_info|
+      def method_missing(name, *args, &block)
+        "#{name}".split("_").each do |meth|
+          valid_methods = ["GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+          if valid_methods.include?("#{meth}")
+            path = args[0]
+            @methods[path] = {} if !@methods.has_key?(path)
+            
+            @methods[path][meth] = { script: args.last, params: args.select{|arg| arg.is_a?(Symbol) && /\A[a-zA-Z\-0-9_]+\Z/.match("#{arg}") } }
+          else
+            super
+          end
+        end
+      end
 
-		            parameter_list = method_info[:params].join(", ")
-		            parameter_call_list = method_info[:params].map{|parm| "params['#{parm}']"}.join(", ")
+      def generate
+        result = ""
+        @methods.each do |path, resource|
+            resource.each do |method, method_info|
 
-		            result += <<-SCRIPT
+                parameter_list = method_info[:params].join(", ")
+                parameter_call_list = method_info[:params].map{|parm| "params['#{parm}']"}.join(", ")
 
-		router.#{method.downcase}('#{path}', prepare(function (event, callback) {
+                result += <<-SCRIPT
 
-		  var retval = {};
+    router.#{method.downcase}('#{path}', prepare(function (event, callback) {
 
-		  var params = merge(event.queryStringParameters || {}, event.pathParameters || {});
+      var retval = {};
 
-		  retval = function (#{parameter_list}) {
-		    #{method_info[:script]}
-		  }( #{ parameter_call_list } );
+      var params = merge(event.queryStringParameters || {}, event.pathParameters || {});
 
-		  var response = {
-		    statusCode: 200,
-		    headers: {
-		        "Content-Type" : "application/json; charset=utf-8"
-		    },
-		    body: JSON.stringify(retval, null, 2)
-		  };
+      function respond_with(response_object, response_status)
+      {
+        var response = {
+          statusCode: response_status || 200,
+          headers: {
+              "Content-Type" : "application/json; charset=utf-8"
+          },
+          body: JSON.stringify(response_object)
+        };
 
-		  callback(null, response);
-		}))
+        callback(null, response);
+      }
 
-		          SCRIPT
-		        end
-		      end
-		    result
-		  end
-		end
+      var retval = function (#{parameter_list}) {
+        #{method_info[:script]}
+      }( #{ parameter_call_list } );
 
-		def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, &block)
+    }));
 
-		    api = make "AWS::ApiGateway::RestApi", name: name do
-		        Name name
-		    end
+              SCRIPT
+            end
+          end
+        result
+      end
+    end
 
-		    script ||= <<-SCRIPT
+    def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, &block)
 
-		'use strict';
-		console.log('Loading API');
+        api = make "AWS::ApiGateway::RestApi", name: name do
+            Name name
+        end
 
-		var os                  = require('os');
-		var http                = require('http');
-		var url                 = require('url');
-		var merge               = require('utils-merge');
-		var Router              = require('router')
+        script ||= <<-SCRIPT
 
-		var router = Router();
+    'use strict';
+    console.log('Loading API');
 
-		function prepare(handler)
-		{
-		    return function(request, callback)
-		    {
-		        try 
-		        {
-		            request._native_req.pathParameters = request.params
-		            handler(request._native_req, callback);
-		        }
-		        catch (e)
-		        {
-		            console.log(e);
-		            callback(e, {
-		                statusCode: 500, 
-		                body: JSON.stringify({message: "Internal Server Error"}, null, 2)
-		            });
-		        }
-		    }
-		}
+    var os                  = require('os');
+    var http                = require('http');
+    var url                 = require('url');
+    var merge               = require('utils-merge');
+    var Router              = require('router')
 
-		// {{ ROUTES }}
+    var router = Router();
 
-		exports.handler = function(event, context, callback) {
+    function prepare(handler)
+    {
+        return function(request, callback)
+        {
+            try 
+            {
+                request._native_req.pathParameters = request.params
+                handler(request._native_req, callback);
+            }
+            catch (e)
+            {
+                console.log(e);
+                callback(e, {
+                    statusCode: 500, 
+                    body: JSON.stringify({message: "Internal Server Error"}, null, 2)
+                });
+            }
+        }
+    }
 
-		    var request = {
-		        _native_req: event,
-		        url: "https://something" + event.path,
-		        method: event.httpMethod,
-		        params: {}
-		    }
+    // {{ ROUTES }}
 
-		    console.log(request);
+    exports.handler = function(event, context, callback) {
 
-		    router(request, callback, function(err) {
-		        callback(null, {
-		            statusCode: 404, 
-		            body: JSON.stringify({message: "File not found"}, null, 2)
-		        })
-		    });
-		};
-		SCRIPT
+        var request = {
+            _native_req: event,
+            url: "https://something" + event.path,
+            method: event.httpMethod,
+            params: {}
+        }
 
-		    apigen = APIGenerator.new(&block);
-		    script.sub!("// {{ ROUTES }}", apigen.generate);
+        console.log(request);
 
-		    module_dir = File.join(Gem.datadir("sumomo"), "api_modules")
+        router(request, callback, function(err) {
+            callback(null, {
+                statusCode: 404, 
+                body: JSON.stringify({message: "File not found"}, null, 2)
+            })
+        });
+    };
+    SCRIPT
 
-		    files = Dir[File.join(module_dir, "**/*")].select{|x| File.file?(x)}.map do |x| 
-		        { name: x.sub(/^#{module_dir}\//, ""), code: File.read(x) } 
-		    end
+        apigen = APIGenerator.new(&block);
+        script.sub!("// {{ ROUTES }}", apigen.generate);
 
-		    files += [ {name:"index.js", code:script} ]
+        module_dir = File.join(Gem.datadir("sumomo"), "api_modules")
 
-		    fun = make_lambda(name: "#{name}Lambda#{@version_number}", files:files)
+        files = Dir[File.join(module_dir, "**/*")].select{|x| File.file?(x)}.map do |x| 
+            { name: x.sub(/^#{module_dir}\//, ""), code: File.read(x) } 
+        end
 
-		    resource = make "AWS::ApiGateway::Resource", name: "#{name}Resource" do
-		        ParentId api.RootResourceId
-		        PathPart "{proxy+}"
-		        RestApiId api
-		    end
+        files += [ {name:"index.js", code:script} ]
 
-		    meth = make "AWS::ApiGateway::Method", name: "#{name}MethodOther" do
-		        RestApiId api
-		        ResourceId resource
-		        HttpMethod "ANY"
-		        AuthorizationType "NONE"
-		        Integration ({
-		            Type: "AWS_PROXY",
-		            IntegrationHttpMethod: "POST",
-		            Uri: call("Fn::Join", "", ["arn:aws:apigateway:" ,ref("AWS::Region") ,":lambda:path", "/2015-03-31/functions/", fun.Arn, "/invocations"])
-		        })
-		    end
+        fun = make_lambda(name: "#{name}Lambda#{@version_number}", files:files)
 
-		    meth2 = make "AWS::ApiGateway::Method", name: "#{name}MethodRoot" do
-		        RestApiId api
-		        ResourceId api.RootResourceId
-		        HttpMethod "ANY"
-		        AuthorizationType "NONE"
-		        Integration ({
-		            Type: "AWS_PROXY",
-		            IntegrationHttpMethod: "POST",
-		            Uri: call("Fn::Join", "", ["arn:aws:apigateway:" ,ref("AWS::Region") ,":lambda:path", "/2015-03-31/functions/", fun.Arn, "/invocations"])
-		        })
-		    end
+        resource = make "AWS::ApiGateway::Resource", name: "#{name}Resource" do
+            ParentId api.RootResourceId
+            PathPart "{proxy+}"
+            RestApiId api
+        end
 
-		    make "AWS::Lambda::Permission", name: "#{name}LambdaPermission" do
-		        FunctionName fun.Arn
-		        Action "lambda:InvokeFunction"
-		        Principal "apigateway.amazonaws.com"
-		    end
+        meth = make "AWS::ApiGateway::Method", name: "#{name}MethodOther" do
+            RestApiId api
+            ResourceId resource
+            HttpMethod "ANY"
+            AuthorizationType "NONE"
+            Integration ({
+                Type: "AWS_PROXY",
+                IntegrationHttpMethod: "POST",
+                Uri: call("Fn::Join", "", ["arn:aws:apigateway:" ,ref("AWS::Region") ,":lambda:path", "/2015-03-31/functions/", fun.Arn, "/invocations"])
+            })
+        end
 
-		    deployment = make "AWS::ApiGateway::Deployment", name: "#{name}Deployment#{@version_number}" do
-		        depends_on meth
-		        depends_on meth2
-		        RestApiId api
-		    end
+        meth2 = make "AWS::ApiGateway::Method", name: "#{name}MethodRoot" do
+            RestApiId api
+            ResourceId api.RootResourceId
+            HttpMethod "ANY"
+            AuthorizationType "NONE"
+            Integration ({
+                Type: "AWS_PROXY",
+                IntegrationHttpMethod: "POST",
+                Uri: call("Fn::Join", "", ["arn:aws:apigateway:" ,ref("AWS::Region") ,":lambda:path", "/2015-03-31/functions/", fun.Arn, "/invocations"])
+            })
+        end
 
-		    stage = make "AWS::ApiGateway::Stage", name: "#{name}Stage" do
-		        RestApiId api
-		        DeploymentId deployment
-		        StageName "test"
-		    end
+        make "AWS::Lambda::Permission", name: "#{name}LambdaPermission" do
+            FunctionName fun.Arn
+            Action "lambda:InvokeFunction"
+            Principal "apigateway.amazonaws.com"
+        end
 
-		    root_name = /(?<root_name>[^.]+\.[^.]+)$/.match(domain_name)[:root_name]
+        deployment = make "AWS::ApiGateway::Deployment", name: "#{name}Deployment#{@version_number}" do
+            depends_on meth
+            depends_on meth2
+            RestApiId api
+        end
 
-		    cert ||= make "Custom::USEastCertificate", name: "#{name}Certificate" do
-		        DomainName domain_name
-		    end
+        stage = make "AWS::ApiGateway::Stage", name: "#{name}Stage" do
+            RestApiId api
+            DeploymentId deployment
+            StageName "test"
+        end
 
-		    domain = make "Custom::APIDomainName", name: "#{name}DomainName" do
-		        DomainName domain_name
-		        CertificateArn cert
-		    end
+        root_name = /(?<root_name>[^.]+\.[^.]+)$/.match(domain_name)[:root_name]
 
-		    make "AWS::ApiGateway::BasePathMapping", name: "#{name}BasePathMapping" do
-		        BasePath "(none)"
-		        DomainName domain
-		        RestApiId api
-		        Stage stage
-		    end
+        cert ||= make "Custom::USEastCertificate", name: "#{name}Certificate" do
+            DomainName domain_name
+        end
 
-		    if dns[:type] == :cloudflare
-		        make "Custom::CloudflareDNSEntry", name: "#{name}CloudFlareEntry" do
-		            Key dns[:key]
-		            Email dns[:email]
-		            Domain root_name
-		            Entry domain_name.sub(/#{root_name}$/, "").chomp(".")
-		            CNAME call("Fn::Join", "", [api, ".execute-api.", ref("AWS::Region"), ".amazonaws.com"])
-		        end
-		        domain_name
-		    elsif dns[:type] == :route53
-		        make "AWS::Route53::RecordSet", name: "#{name}Route53Entry" do
-		            HostedZoneId dns[:hosted_zone]
-		            Name domain_name
-		            Type "CNAME"
-		        end
-		        domain_name
-		    else
-		        call("Fn::Join", "", [api, ".execute-api.", ref("AWS::Region"), ".amazonaws.com"])
-		    end
-		    
-		end
+        domain = make "Custom::APIDomainName", name: "#{name}DomainName" do
+            DomainName domain_name
+            CertificateArn cert
+        end
 
-		def cloudflare_dns(key:, email:)
-		    {type: :cloudflare, key: key, email: email}
-		end
+        make "AWS::ApiGateway::BasePathMapping", name: "#{name}BasePathMapping" do
+            BasePath "(none)"
+            DomainName domain
+            RestApiId api
+            Stage stage
+        end
 
-		def route53_dns(hosted_zone:)
-		    {type: :route53, hosted_zone: hosted_zone}
-		end
+        if dns[:type] == :cloudflare
+            make "Custom::CloudflareDNSEntry", name: "#{name}CloudFlareEntry" do
+                Key dns[:key]
+                Email dns[:email]
+                Domain root_name
+                Entry domain_name.sub(/#{root_name}$/, "").chomp(".")
+                CNAME call("Fn::Join", "", [api, ".execute-api.", ref("AWS::Region"), ".amazonaws.com"])
+            end
+            domain_name
+        elsif dns[:type] == :route53
+            make "AWS::Route53::RecordSet", name: "#{name}Route53Entry" do
+                HostedZoneId dns[:hosted_zone]
+                Name domain_name
+                Type "CNAME"
+            end
+            domain_name
+        else
+            call("Fn::Join", "", [api, ".execute-api.", ref("AWS::Region"), ".amazonaws.com"])
+        end
+        
+    end
 
-	end
+    def cloudflare_dns(key:, email:)
+        {type: :cloudflare, key: key, email: email}
+    end
+
+    def route53_dns(hosted_zone:)
+        {type: :route53, hosted_zone: hosted_zone}
+    end
+
+  end
 end
