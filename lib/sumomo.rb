@@ -6,6 +6,7 @@ require 'yaml'
 
 require "sumomo/version"
 require 'sumomo/api'
+require 'sumomo/cdn'
 require 'sumomo/dns'
 require 'sumomo/ec2'
 require 'sumomo/ecs'
