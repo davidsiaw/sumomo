@@ -100,7 +100,7 @@ if (request.RequestType == "Delete")
           }
           else
           {
-            Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "" );
+            Cloudformation.send(request, context, Cloudformation.SUCCESS, {}, "Success", "0" );
           }
         });
 
