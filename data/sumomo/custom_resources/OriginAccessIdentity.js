@@ -90,6 +90,7 @@ if (request.RequestType == "Delete")
       {
         var params = {
           Id: data.CloudFrontOriginAccessIdentity.Id,
+          IfMatch: data.ETag
         };
         cloudfront.deleteCloudFrontOriginAccessIdentity(params, function(err, data) {
           if (err)
