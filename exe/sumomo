@@ -4,7 +4,7 @@ require "trollop"
 require "sumomo"
 require "yaml"
 
-SUB_COMMANDS = %w(delete create update)
+SUB_COMMANDS = %w(delete create update outputs testapi)
 global_opts = Trollop::options do
   banner <<-USAGE
   Sumomo v#{Sumomo::VERSION}
@@ -42,6 +42,17 @@ when "outputs"
 	puts "Outputs for stack #{ARGV[0]}"
 	puts Sumomo::get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
 
+when "testapi"
+	local_opts = Trollop::options do
+		opt :filename, "File that describes the stack", type: :string, default: "Sumomofile"
+		opt :apiname, "Name of the API you want to test", type: :string
+	end
+	puts "API Test Mode"
+	Sumomo::test_api(local_opts[:apiname]) do
+		proc = Proc.new {}
+		eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+	end
+	exit(0)
 else
 	Trollop::die "Unknown subcommand #{cmd.inspect}"
 end

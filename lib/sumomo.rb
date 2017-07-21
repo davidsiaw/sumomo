@@ -177,6 +177,34 @@ module Sumomo
 		end 
 	end
 
+	class APITester
+
+		attr_accessor :apis
+		def initialize(&block)
+			@apis = {}
+			instance_eval(&block)
+		end
+
+		def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, &block)
+			@apis[name] = block
+		end
+
+      	def method_missing(name, *args, &block)
+      	end
+	end
+
+	def self.test_api(apiname, &block)
+			puts apiname
+		tester = APITester.new(&block)
+		if tester.apis.length == 1
+
+		elsif apiname
+
+		else
+			puts "Please choose from one of the APIs: #{tester.apis.keys.inspect}"
+		end
+	end
+
 	def self.delete_stack(name:, region:, retain_bucket: false)
 		cf = Aws::CloudFormation::Client.new(region: region)
 		ec2 = Aws::EC2::Client.new(region: region)

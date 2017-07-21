@@ -143,6 +143,14 @@ module Sumomo
 									Port container_port
 									Protocol "HTTP"
 									VpcId network[:vpc]
+
+									if container[:alb_sticky]
+										TargetGroupAttributes({
+											"stickiness.enabled" => true,
+											"stickiness.type" => "lb_cookie"
+										}.map{|k,v| {Key: k, Value: v} })
+										container.delete(:alb_sticky)
+									end
 								end
 
 								alb_action = {
