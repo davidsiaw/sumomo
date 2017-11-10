@@ -194,14 +194,30 @@ module Sumomo
 	end
 
 	def self.test_api(apiname, &block)
-			puts apiname
 		tester = APITester.new(&block)
+		test_name = nil
 		if tester.apis.length == 1
-
+			test_name = tester.apis.keys.first
 		elsif apiname
-
+			if tester.apis.has_key? apiname
+				test_name = apiname
+			else
+				puts "Unknown API name. Please choose from one of the APIs: #{tester.apis.keys.inspect}"
+			end
 		else
 			puts "Please choose from one of the APIs: #{tester.apis.keys.inspect}"
+		end
+
+		if test_name
+			puts "Testing API #{test_name}"
+			apigen = Stack::APIGenerator.new(&tester.apis[test_name])
+
+			script = File.read(File.join(Gem.datadir("sumomo"), "api_modules", "test_script.js"))
+        	script.sub!("// {{ ROUTES }}", apigen.generate);
+
+			File.write(".test.js", script)
+
+			exec "NODE_PATH=#{File.join(Gem.datadir("sumomo"), "api_modules", "node_modules")} node .test.js"
 		end
 	end
 

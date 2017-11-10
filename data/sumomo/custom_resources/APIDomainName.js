@@ -59,6 +59,7 @@ function deleteName(onSuccess, onFail)
   function(err)
   {
     // If it doesn't exist it was not created in the first place
+    onSuccess(name);
   });
 }
 
