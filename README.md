@@ -122,7 +122,7 @@ output "APIURL", api
 You can test your API now
 
 ```bash
-sumomo testapi -a TestGenAPI
+$ sumomo testapi -a TestGenAPI
 ```
 
 ## Development
