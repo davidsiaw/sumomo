@@ -46,9 +46,10 @@ when "testapi"
 	local_opts = Trollop::options do
 		opt :filename, "File that describes the stack", type: :string, default: "Sumomofile"
 		opt :apiname, "Name of the API you want to test", type: :string
+		opt :prettyprint, "Test API outputs JSON with nice indentation", type: :boolean, default: true
 	end
 	puts "API Test Mode"
-	Sumomo::test_api(local_opts[:apiname]) do
+	Sumomo::test_api(local_opts[:apiname], local_opts[:prettyprint]) do
 		proc = Proc.new {}
 		eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
 	end

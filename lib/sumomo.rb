@@ -193,7 +193,7 @@ module Sumomo
       	end
 	end
 
-	def self.test_api(apiname, &block)
+	def self.test_api(apiname, pretty_print, &block)
 		tester = APITester.new(&block)
 		test_name = nil
 		if tester.apis.length == 1
@@ -210,7 +210,7 @@ module Sumomo
 
 		if test_name
 			puts "Testing API #{test_name}"
-			apigen = Stack::APIGenerator.new(&tester.apis[test_name])
+			apigen = Stack::APIGenerator.new(pretty_print: pretty_print, &tester.apis[test_name])
 
 			script = File.read(File.join(Gem.datadir("sumomo"), "api_modules", "test_script.js"))
         	script.sub!("// {{ ROUTES }}", apigen.generate);

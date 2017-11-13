@@ -3,8 +3,9 @@ module Sumomo
   module Stack
 
     class APIGenerator
-      def initialize(&block)
+      def initialize(pretty_print: false, &block)
         @methods = {}
+        @pretty_print = pretty_print
         instance_eval(&block)
       end
 
@@ -23,6 +24,13 @@ module Sumomo
       end
 
       def generate
+
+        if @pretty_print
+            pretty_print = ", null, 2"
+        else
+            pretty_print = ""
+        end
+
         result = ""
         @methods.each do |path, resource|
             resource.each do |method, method_info|
@@ -45,7 +53,7 @@ module Sumomo
           headers: {
               "Content-Type" : "application/json; charset=utf-8"
           },
-          body: JSON.stringify(response_object)
+          body: JSON.stringify(response_object#{pretty_print})
         };
 
         callback(null, response);
