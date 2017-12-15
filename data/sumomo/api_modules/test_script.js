@@ -8,6 +8,27 @@ var url          = require('url');
 var merge        = require('utils-merge');
 var Router       = require('router')
 
+// Simulated store
+function Storage()
+{
+	var store = {}
+
+	this.get = function(key, onComplete, onError)
+	{
+		onComplete(store[key]);
+	}
+
+	this.set = function(key, value, onComplete, onError)
+	{
+		store[key] = value;
+		onComplete(key);
+	}
+
+	return this;
+}
+
+var Store = new Storage();
+
 var router = Router();
 
 var response_sent = false;
@@ -143,4 +164,5 @@ function prepare(handler)
 
 // {{ ROUTES }}
 
-server.listen(3000)
+console.log("Listening on port 5000")
+server.listen(5000)

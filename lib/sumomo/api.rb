@@ -78,10 +78,14 @@ module Sumomo
             Name name
         end
 
-        script ||= File.read(File.join(Gem.datadir("sumomo"), "api_modules", "real_script.js"))
+        script ||= File.read(File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "real_script.js"))
 
         apigen = APIGenerator.new(&block);
         script.sub!("// {{ ROUTES }}", apigen.generate);
+
+        script.sub!("{{ REGION }}", @region);
+        script.sub!("{{ BUCKET }}", @bucket_name);
+        script.sub!("{{ STORE_PREFIX }}", "functions/" + name);
 
         module_dir = File.join(Gem.datadir("sumomo"), "api_modules")
 

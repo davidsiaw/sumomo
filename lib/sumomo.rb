@@ -212,12 +212,13 @@ module Sumomo
 			puts "Testing API #{test_name}"
 			apigen = Stack::APIGenerator.new(pretty_print: pretty_print, &tester.apis[test_name])
 
-			script = File.read(File.join(Gem.datadir("sumomo"), "api_modules", "test_script.js"))
+		
+			script = File.read(File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "test_script.js"))
         	script.sub!("// {{ ROUTES }}", apigen.generate);
 
 			File.write(".test.js", script)
 
-			exec "NODE_PATH=#{File.join(Gem.datadir("sumomo"), "api_modules", "node_modules")} node .test.js"
+			exec "NODE_PATH=#{File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "node_modules")} node .test.js"
 		end
 	end
 

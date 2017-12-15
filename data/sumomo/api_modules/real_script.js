@@ -5,9 +5,80 @@ var os                  = require('os');
 var http                = require('http');
 var url                 = require('url');
 var merge               = require('utils-merge');
-var Router              = require('router')
+var Router              = require('router');
+var aws                 = require("aws-sdk");
 
 var router = Router();
+
+// S3 store
+function Storage()
+{
+    var s3 = new aws.S3({region: "{{ REGION }}"});
+
+    this.get = function(key, onComplete, onError)
+    {
+        s3.getObject({
+            Bucket: "{{ BUCKET }}",
+            Key: "data/{{ STORE_PREFIX }}/" + key
+        }, function(err, data) {
+            if (err)
+            {
+                if (onError)
+                {
+                    onError(err);
+                }
+            }
+            else 
+            {
+                if (onComplete)
+                {
+                    try
+                    {
+                        var val = JSON.parse(data.Body.toString());
+                        onComplete(val.value);
+                    }
+                    catch
+                    {
+                        if (onError)
+                        {
+                          onError(err);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    this.set = function(key, value, onComplete, onError)
+    {
+        var val = { value: value };
+
+        s3.putObject({
+            Bucket: "{{ BUCKET }}",
+            Key: "data/{{ PREFIX }}/" + key,
+            Body: JSON.stringify(val)
+        }, function(err, data) {
+            if (err)
+            {
+                if (onError)
+                {
+                    onError(err);
+                }
+            }
+            else 
+            {
+                if (onComplete)
+                {
+                    onComplete(key);
+                }
+            }
+        });
+    }
+
+    return this;
+}
+
+var Store = new Storage();
 
 function prepare(handler)
 {
