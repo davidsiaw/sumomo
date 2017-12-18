@@ -494,8 +494,8 @@ aws ec2 associate-address --region `cat /etc/aws_region` --instance-id `curl htt
 				end
 
 				if spot_price and ec2_sns_arn
-					watcher = File.read( File.join( Gem.datadir("sumomo"), "sources", "spot-watcher.sh" ) )
-					poller = File.read( File.join( Gem.datadir("sumomo"), "sources", "spot-watcher-poller.sh" ) )
+					watcher = File.read( File.join( Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "sources", "spot-watcher.sh" ) )
+					poller = File.read( File.join( Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "sources", "spot-watcher-poller.sh" ) )
 
 					file "/etc/init.d/spot-watcher", content: watcher, mode: "000700"
 					file "/bin/spot-watcher", content: poller, mode: "000700", context: {

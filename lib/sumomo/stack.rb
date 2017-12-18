@@ -75,7 +75,7 @@ module Sumomo
 				files:[
 					{
 						name: "index.js", 
-						code: File.read( File.join(Gem.datadir("sumomo"), "custom_resource_utils.js") ).sub("{{ CODE }}", code)
+						code: File.read( File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "custom_resource_utils.js") ).sub("{{ CODE }}", code)
 					}
 				],
 				description: "CF Resource Custom::#{name}",
@@ -99,7 +99,7 @@ module Sumomo
 			if match
 				if !@custom_resources[type]
 
-					resource_function_source = File.join(Gem.datadir("sumomo"), "custom_resources", "#{match[:name]}.js")
+					resource_function_source = File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "custom_resources", "#{match[:name]}.js")
 					
 					if File.exists? resource_function_source
 						define_custom_resource(name: match[:name], code: File.read(resource_function_source))

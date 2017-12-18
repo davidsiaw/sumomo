@@ -83,11 +83,11 @@ module Sumomo
         apigen = APIGenerator.new(&block);
         script.sub!("// {{ ROUTES }}", apigen.generate);
 
-        script.sub!("{{ REGION }}", @region);
-        script.sub!("{{ BUCKET }}", @bucket_name);
-        script.sub!("{{ STORE_PREFIX }}", "functions/" + name);
+        script.gsub!("{{ REGION }}", @region);
+        script.gsub!("{{ BUCKET }}", @bucket_name);
+        script.gsub!("{{ STORE_PREFIX }}", "functions/" + name);
 
-        module_dir = File.join(Gem.datadir("sumomo"), "api_modules")
+        module_dir = File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules")
 
         files = Dir[File.join(module_dir, "**/*")].select{|x| File.file?(x)}.map do |x| 
             { name: x.sub(/^#{module_dir}\//, ""), code: File.read(x) } 

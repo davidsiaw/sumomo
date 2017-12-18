@@ -15,7 +15,14 @@ function Storage()
 
 	this.get = function(key, onComplete, onError)
 	{
-		onComplete(store[key]);
+		if (store[key] === undefined)
+		{
+			onError({err: "no_such_key"});
+		}
+		else
+		{
+			onComplete(store[key]);
+		}
 	}
 
 	this.set = function(key, value, onComplete, onError)

@@ -37,11 +37,11 @@ function Storage()
                         var val = JSON.parse(data.Body.toString());
                         onComplete(val.value);
                     }
-                    catch
+                    catch(e)
                     {
                         if (onError)
                         {
-                          onError(err);
+                          onError(e);
                         }
                     }
                 }
@@ -55,7 +55,7 @@ function Storage()
 
         s3.putObject({
             Bucket: "{{ BUCKET }}",
-            Key: "data/{{ PREFIX }}/" + key,
+            Key: "data/{{ STORE_PREFIX }}/" + key,
             Body: JSON.stringify(val)
         }, function(err, data) {
             if (err)
