@@ -1,12 +1,15 @@
 
 module Sumomo
   module Stack
-    def make_cdn_from_dir(domain:, dir:, low_ttl: [])
+    def make_cdn_from_dir(domain:, dns:nil, name:nil, dir:, low_ttl: [])
 
         bucket_name = @bucket_name
 
+        name ||= make_default_resource_name("CDN")
+
         puts "Uploading files..."
-        `aws s3 sync #{dir} "s3://#{bucket_name}/uploads/#{domain}" --size-only --delete`
+        `aws --version`
+        `aws s3 --region #{@region} sync #{dir} "s3://#{bucket_name}/uploads/#{domain}" --size-only --delete`
         puts "Done."
 
         oai = make "Custom::OriginAccessIdentity"
@@ -29,7 +32,7 @@ module Sumomo
             })
         end
 
-        make "AWS::CloudFront::Distribution" do
+        cdn = make "AWS::CloudFront::Distribution", name: name do
             DistributionConfig do
                 Origins [{
                     Id: "originBucket",
@@ -77,6 +80,30 @@ module Sumomo
                 end
             end
         end
+
+        root_name = /(?<root_name>[^.]+\.[^.]+)$/.match(domain)[:root_name]
+
+        if !dns
+
+        elsif dns[:type] == :cloudflare
+            make "Custom::CloudflareDNSEntry", name: "#{name}CloudFlareEntry" do
+                Key dns[:key]
+                Email dns[:email]
+                Domain root_name
+                Entry domain.sub(/#{root_name}$/, "").chomp(".")
+                CNAME cdn.DomainName
+            end
+        elsif dns[:type] == :route53
+            make "AWS::Route53::RecordSet", name: "#{name}Route53Entry" do
+                HostedZoneId dns[:hosted_zone]
+                Name domain
+                Type "CNAME"
+                ResourceRecords [ cdn.DomainName ]
+            end
+        end
+
+        cdn
+
     end
   end
 end

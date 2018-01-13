@@ -177,6 +177,7 @@ module Sumomo
                 HostedZoneId dns[:hosted_zone]
                 Name domain_name
                 Type "CNAME"
+                ResourceRecords [ call("Fn::Join", "", [api, ".execute-api.", ref("AWS::Region"), ".amazonaws.com"]) ]
             end
             domain_name
         else

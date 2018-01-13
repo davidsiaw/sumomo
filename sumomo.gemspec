@@ -32,7 +32,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "momo", "0.4.1"
   spec.add_dependency "s3cabinet"
-  spec.add_dependency "aws-sdk", "2.10.9"
+  spec.add_dependency "aws-sdk", "~> 2"
   spec.add_dependency "rubyzip"
   spec.add_dependency "activesupport"
   spec.add_dependency "hashie"
