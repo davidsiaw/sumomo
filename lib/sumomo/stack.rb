@@ -28,7 +28,7 @@ module Sumomo
 			runtime: "nodejs4.3",
 			memory_size: 128,
 			timeout: 30,
-			role: nil)
+			with_statements: [])
 
 			name ||= make_default_resource_name("Lambda")
 
@@ -47,6 +47,8 @@ module Sumomo
 
 			@store.set_raw(function_key, stringio.string)
 
+			stack = self
+
 			code_location = {"S3Bucket": @bucket_name, "S3Key": function_key}
 			fun = make "AWS::Lambda::Function", name: name do
 				Code code_location
@@ -55,7 +57,7 @@ module Sumomo
 				Handler handler
 				Runtime runtime
 				Timeout timeout
-				Role role || exec_role.Arn
+				Role stack.exec_role(with_statements: with_statements).Arn
 			end
 
 			log_group = make "AWS::Logs::LogGroup", name: "#{name}LogGroup" do
@@ -114,8 +116,17 @@ module Sumomo
 			end
 		end
 
-		def make_exec_role
-			if @exec_role == nil
+		def exec_role(with_statements: [])
+
+			if @exec_roles == nil
+				@exec_roles = {}
+			end
+
+			statement_key = JSON.parse(with_statements.to_json)
+
+			if !@exec_roles.has_key?(statement_key)
+				name = make_default_resource_name("LambdaExecRole")
+
 				role_policy_doc = {
 					"Version" => "2012-10-17",
 					"Statement" => [{
@@ -124,52 +135,58 @@ module Sumomo
 						"Action" => ["sts:AssumeRole"]
 					}]
 				}
+
 				bucket_name = @bucket_name
-				@exec_role = make "AWS::IAM::Role", name: "LambdaFunctionExecutionRole" do
+
+				statement_list = [
+					{
+						"Effect" => "Allow",
+						"Action" => ["logs:CreateLogStream","logs:PutLogEvents"],
+						"Resource" => "arn:aws:logs:*:*:*"
+					},
+					{
+						"Effect" => "Allow",
+						"Action" => ["cloudformation:DescribeStacks", "ec2:Describe*", ],
+						"Resource" => "*"
+					},
+					{
+						"Effect" => "Allow",
+						"Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+						"Resource" => "arn:aws:s3:::#{bucket_name}/*"
+					},
+					{
+						"Effect" => "Allow",
+						"Action" => ["cloudfront:CreateCloudFrontOriginAccessIdentity", "cloudfront:DeleteCloudFrontOriginAccessIdentity"],
+						"Resource" => "*"
+					},
+					{
+						"Effect" => "Allow",
+						"Action" => ["apigateway:*", "cloudfront:UpdateDistribution"],
+						"Resource" => "*"
+					},
+					{
+						"Effect" => "Allow",
+						"Action" => ["acm:RequestCertificate", "acm:DeleteCertificate", "acm:DescribeCertificate"],
+						"Resource" => "*"
+					}] + with_statements
+
+				@exec_roles[statement_key] = make "AWS::IAM::Role", name: name do
 					AssumeRolePolicyDocument role_policy_doc
 					Path "/"
 					Policies [
 						{
-							"PolicyName" => "lambdapolicy",
+							"PolicyName" => name,
 							"PolicyDocument" => {
 								"Version" => "2012-10-17",
-								"Statement" => [{
-									"Effect" => "Allow",
-									"Action" => ["logs:CreateLogStream","logs:PutLogEvents"],
-									"Resource" => "arn:aws:logs:*:*:*"
-								},
-								{
-									"Effect" => "Allow",
-									"Action" => ["cloudformation:DescribeStacks", "ec2:Describe*", ],
-									"Resource" => "*"
-								},
-								{
-									"Effect" => "Allow",
-									"Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
-									"Resource" => "arn:aws:s3:::#{bucket_name}/*"
-								},
-								{
-									"Effect" => "Allow",
-									"Action" => ["cloudfront:CreateCloudFrontOriginAccessIdentity", "cloudfront:DeleteCloudFrontOriginAccessIdentity"],
-									"Resource" => "*"
-								},
-								{
-									"Effect" => "Allow",
-									"Action" => ["apigateway:*", "cloudfront:UpdateDistribution"],
-									"Resource" => "*"
-								},
-								{
-									"Effect" => "Allow",
-									"Action" => ["acm:RequestCertificate", "acm:DeleteCertificate", "acm:DescribeCertificate"],
-									"Resource" => "*"
-								}]
+								"Statement" => statement_list
 							}
 						}
 					]
 				end
 			end
-			@exec_role
-		end
 
+			@exec_roles[statement_key]
+
+		end
 	end
 end

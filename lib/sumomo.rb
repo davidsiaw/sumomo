@@ -86,8 +86,6 @@ module Sumomo
 				Tags [{"Key" => "Name", "Value" => "dummyfordeploy#{dummy_number}"}]
 			end
 
-			make_exec_role
-
 			instance_eval(&block)
 
 			hidden_values = @hidden_values

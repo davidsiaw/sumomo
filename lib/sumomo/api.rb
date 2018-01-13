@@ -72,7 +72,7 @@ module Sumomo
       end
     end
 
-    def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, &block)
+    def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, with_statements:[], &block)
 
         api = make "AWS::ApiGateway::RestApi", name: name do
             Name name
@@ -95,7 +95,7 @@ module Sumomo
 
         files += [ {name:"index.js", code:script} ]
 
-        fun = make_lambda(name: "#{name}Lambda#{@version_number}", files:files)
+        fun = make_lambda(name: "#{name}Lambda#{@version_number}", files:files, with_statements:with_statements)
 
         resource = make "AWS::ApiGateway::Resource", name: "#{name}Resource" do
             ParentId api.RootResourceId
