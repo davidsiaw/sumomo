@@ -5,15 +5,20 @@ module Sumomo
     class APIGenerator
 
       class CorsInfo
-        attr_accessor :allowed_origins
+        attr_accessor :allowed_origins, :allowed_headers
 
         def apply(&block)
             @allowed_origins = []
+            @allowed_headers = ['origin', 'content-type', 'accept', 'cache-control', 'x-requested-with', 'if-modified-since']
             instance_eval(&block) if block
         end
 
         def AllowOrigin(value)
             @allowed_origins << value
+        end
+
+        def AllowHeaders(value)
+            @allowed_headers << value
         end
       end
 
@@ -64,7 +69,30 @@ module Sumomo
         end
 
         result = ""
+
+        all_methods = @methods.clone
+
+        # Generate appropriate options methods as well
+
         @methods.each do |path, resource|
+            meths = resource.map{|meth,info| meth}
+
+            # Insert OPTIONS method if there isn't already one
+            if !all_methods[path].has_key?("OPTIONS")
+                all_methods[path]["OPTIONS"] = { script: <<-SCRIPT, params: [] }
+                    var headers = {}
+                    headers["Access-Control-Allow-Origin"] = #{@cors.allowed_origins.join(",").inspect}
+                    headers["Access-Control-Request-Method"] = '*'
+                    headers["Access-Control-Allow-Methods"] = '#{meths.join(', ')}'
+                    headers["Access-Control-Allow-Headers"] = #{@cors.allowed_headers.join(",").inspect}
+
+                    respond_with({methods: #{meths.inspect}}, 200, headers)
+                SCRIPT
+            end
+        end
+
+
+        all_methods.each do |path, resource|
             resource.each do |method, method_info|
 
                 parameter_list = method_info[:params].join(", ")
@@ -83,7 +111,6 @@ module Sumomo
 
       function respond_with(response_object, response_status, response_headers)
       {
-
         var headers = {}
         headers["Content-Type"] = "application/json; charset=utf-8"
         headers["Access-Control-Allow-Origin"] = #{@cors.allowed_origins.join(",").inspect}

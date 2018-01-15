@@ -183,7 +183,7 @@ module Sumomo
 			instance_eval(&block)
 		end
 
-		def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, &block)
+		def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, with_statements: [], &block)
 			@apis[name] = block
 		end
 
