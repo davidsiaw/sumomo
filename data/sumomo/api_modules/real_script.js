@@ -81,6 +81,12 @@ function Storage()
 var Store = new Storage();
 
 function parseQuery(queryString) {
+    try
+    {
+        var res = JSON.parse(queryString)
+        return res;
+    }
+    catch(e) { }
     var query = {};
     var pairs = queryString.split('&');
     for (var i = 0; i < pairs.length; i++) {

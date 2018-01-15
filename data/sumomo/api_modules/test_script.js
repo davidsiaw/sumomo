@@ -81,6 +81,12 @@ var server = http.createServer(function(req, res) {
 });
 
 function parseQuery(queryString) {
+	try
+	{
+		var res = JSON.parse(queryString)
+		return res;
+	}
+	catch(e) { }
     var query = {};
     var pairs = (queryString[0] === '?' ? queryString.substr(1) : queryString).split('&');
     for (var i = 0; i < pairs.length; i++) {

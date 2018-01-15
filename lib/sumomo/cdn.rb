@@ -1,7 +1,7 @@
 
 module Sumomo
   module Stack
-    def make_cdn_from_dir(domain:, dns:nil, name:nil, dir:, low_ttl: [])
+    def make_cdn_from_dir(domain:, cert:nil, dns:nil, name:nil, dir:, low_ttl: [])
 
         bucket_name = @bucket_name
 
@@ -32,6 +32,11 @@ module Sumomo
             })
         end
 
+        viewer_policy = "allow-all"
+        if cert
+            viewer_policy = "redirect-to-https"
+        end
+
         cdn = make "AWS::CloudFront::Distribution", name: name do
             DistributionConfig do
                 Origins [{
@@ -51,7 +56,7 @@ module Sumomo
                             Cookies: { Forward: "none" }
                         },
                         TargetOriginId: "originBucket",
-                        ViewerProtocolPolicy: "allow-all",
+                        ViewerProtocolPolicy: viewer_policy,
                         DefaultTTL: 60,
                         MaxTTL: 60,
                         MinTTL: 60
@@ -61,12 +66,20 @@ module Sumomo
                 Enabled "true"
                 DefaultRootObject "index.html"
                 Aliases [ domain ]
-                ViewerCertificate { CloudFrontDefaultCertificate "true" } 
+
+                if cert
+                    ViewerCertificate { 
+                        AcmCertificateArn cert
+                        SslSupportMethod "sni-only"
+                    }
+                else
+                    ViewerCertificate { CloudFrontDefaultCertificate "true" } 
+                end
 
                 DefaultCacheBehavior do
                     AllowedMethods ["GET", "HEAD", "OPTIONS"]
                     TargetOriginId "originBucket"
-                    ViewerProtocolPolicy "allow-all"
+                    ViewerProtocolPolicy viewer_policy
                     ForwardedValues {
                         QueryString "false"
                         Cookies { Forward "none" }

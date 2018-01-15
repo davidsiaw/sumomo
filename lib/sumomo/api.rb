@@ -156,8 +156,7 @@ module Sumomo
 
         apigen = APIGenerator.new(&block);
         script.sub!("// {{ ROUTES }}", apigen.generate);
-
-        script.gsub!("{{ SCRIPT }}", @script);
+        script.gsub!("{{ SCRIPT }}", apigen.init_script);
         script.gsub!("{{ REGION }}", @region);
         script.gsub!("{{ BUCKET }}", @bucket_name);
         script.gsub!("{{ STORE_PREFIX }}", "functions/" + name);
