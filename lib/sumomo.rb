@@ -213,6 +213,7 @@ module Sumomo
 		
 			script = File.read(File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "test_script.js"))
         	script.sub!("// {{ ROUTES }}", apigen.generate);
+        	script.gsub!("{{ SCRIPT }}", apigen.init_script);
 
 			File.write(".test.js", script)
 

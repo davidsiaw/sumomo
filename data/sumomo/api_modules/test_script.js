@@ -7,28 +7,52 @@ var http         = require('http');
 var url          = require('url');
 var merge        = require('utils-merge');
 var Router       = require('router')
+var fs           = require('fs')
 
 // Simulated store
 function Storage()
 {
 	var store = {}
 
+	try
+	{
+		var store_contents = fs.readFileSync(".store")
+		store = JSON.parse(store_contents)
+	}
+	catch (e)
+	{
+		console.log("Error reading .store; will start with blank store")
+		console.log(e)
+	}
+
 	this.get = function(key, onComplete, onError)
 	{
 		if (store[key] === undefined)
 		{
-			onError({err: "no_such_key"});
+			if (onError)
+			{
+				onError({err: "no_such_key"});
+			}
 		}
 		else
 		{
-			onComplete(store[key]);
+			if (onComplete)
+			{
+				onComplete(store[key]);
+			}
 		}
 	}
 
 	this.set = function(key, value, onComplete, onError)
 	{
 		store[key] = value;
-		onComplete(key);
+		fs.writeFile(".store", JSON.stringify(store), function()
+		{
+			if (onComplete)
+			{
+				onComplete(key);
+			}
+		})
 	}
 
 	return this;
@@ -55,6 +79,18 @@ var server = http.createServer(function(req, res) {
 		res.end(JSON.stringify({message: "File not found"}));
  	});
 });
+
+function parseQuery(queryString) {
+    var query = {};
+    var pairs = (queryString[0] === '?' ? queryString.substr(1) : queryString).split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var pair = pairs[i].split('=');
+        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+    }
+    return query;
+}
+
+{{ SCRIPT }}
 
 // Simulate API Gateway Lambda Proxy Event
 function prepare(handler)

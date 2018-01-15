@@ -80,6 +80,18 @@ function Storage()
 
 var Store = new Storage();
 
+function parseQuery(queryString) {
+    var query = {};
+    var pairs = queryString.split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var pair = pairs[i].split('=');
+        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+    }
+    return query;
+}
+
+{{ SCRIPT }}
+
 function prepare(handler)
 {
     return function(request, callback)

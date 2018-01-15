@@ -3,8 +3,28 @@ module Sumomo
   module Stack
 
     class APIGenerator
+
+      class CorsInfo
+        attr_accessor :allowed_origins
+
+        def apply(&block)
+            @allowed_origins = []
+            instance_eval(&block) if block
+        end
+
+        def AllowOrigin(value)
+            @allowed_origins << value
+        end
+      end
+
       def initialize(pretty_print: false, &block)
         @methods = {}
+        @cors = CorsInfo.new
+        @script = ""
+        # defaults
+        @cors.apply do
+            AllowOrigin "*"
+        end
         @pretty_print = pretty_print
         instance_eval(&block)
       end
@@ -21,6 +41,18 @@ module Sumomo
             super
           end
         end
+      end
+
+      def CORS(&block)
+        @cors.apply(&block)
+      end
+
+      def SCRIPT(value)
+        @script = value
+      end
+
+      def init_script
+          @script
       end
 
       def generate
@@ -44,15 +76,29 @@ module Sumomo
 
       var retval = {};
 
-      var params = merge(event.queryStringParameters || {}, event.pathParameters || {});
+      var bodyParameters = parseQuery(event.body);
 
-      function respond_with(response_object, response_status)
+      var params = merge(event.queryStringParameters || {}, event.pathParameters || {});
+      params = merge(params, bodyParameters);
+
+      function respond_with(response_object, response_status, response_headers)
       {
+
+        var headers = {}
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        headers["Access-Control-Allow-Origin"] = #{@cors.allowed_origins.join(",").inspect}
+
+        if (response_headers)
+        {
+            for(var key in response_headers)
+            {
+                headers[key] = response_headers[key];
+            }
+        }
+
         var response = {
           statusCode: response_status || 200,
-          headers: {
-              "Content-Type" : "application/json; charset=utf-8"
-          },
+          headers: headers,
           body: JSON.stringify(response_object#{pretty_print})
         };
 
@@ -72,6 +118,7 @@ module Sumomo
       end
     end
 
+
     def make_api(domain_name, name:, script:nil, dns:nil, cert:nil, with_statements:[], &block)
 
         api = make "AWS::ApiGateway::RestApi", name: name do
@@ -83,6 +130,7 @@ module Sumomo
         apigen = APIGenerator.new(&block);
         script.sub!("// {{ ROUTES }}", apigen.generate);
 
+        script.gsub!("{{ SCRIPT }}", @script);
         script.gsub!("{{ REGION }}", @region);
         script.gsub!("{{ BUCKET }}", @bucket_name);
         script.gsub!("{{ STORE_PREFIX }}", "functions/" + name);
