@@ -9,7 +9,7 @@ module Sumomo
 
         def apply(&block)
             @allowed_origins = []
-            @allowed_headers = ['origin', 'content-type', 'accept', 'cache-control', 'x-requested-with', 'if-modified-since']
+            @allowed_headers = []
             instance_eval(&block) if block
         end
 
@@ -17,7 +17,7 @@ module Sumomo
             @allowed_origins << value
         end
 
-        def AllowHeaders(value)
+        def AllowHeader(value)
             @allowed_headers << value
         end
       end
@@ -29,6 +29,12 @@ module Sumomo
         # defaults
         @cors.apply do
             AllowOrigin "*"
+            AllowHeader 'origin'
+            AllowHeader 'content-type'
+            AllowHeader 'accept'
+            AllowHeader 'cache-control'
+            AllowHeader 'x-requested-with'
+            AllowHeader 'if-modified-since'
         end
         @pretty_print = pretty_print
         instance_eval(&block)
