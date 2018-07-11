@@ -66,6 +66,13 @@ module Sumomo
           @script
       end
 
+      def self.combine_modules(dest)
+          orig_modules = File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "node_modules")
+
+          `cp -Rad #{orig_modules}/ #{dest}/`
+          `cp -Rad node_modules/* #{dest}/`
+      end
+
       def generate
 
         if @pretty_print
@@ -167,7 +174,9 @@ module Sumomo
         script.gsub!("{{ BUCKET }}", @bucket_name);
         script.gsub!("{{ STORE_PREFIX }}", "functions/" + name);
 
-        module_dir = File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules")
+        module_dir = ".build_modules"
+
+        APIGenerator.combine_modules(module_dir)
 
         files = Dir[File.join(module_dir, "**/*")].select{|x| File.file?(x)}.map do |x| 
             { name: x.sub(/^#{module_dir}\//, ""), code: File.read(x) } 
