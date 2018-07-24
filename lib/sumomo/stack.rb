@@ -25,7 +25,7 @@ module Sumomo
 			description: "Lambda Function in #{@bucket_name}", 
 			function_key: "cloudformation/lambda/function_#{name}",
 			handler: "index.handler",
-			runtime: "nodejs4.3",
+			runtime: "nodejs8.10",
 			memory_size: 128,
 			timeout: 30,
 			with_statements: [])
@@ -131,7 +131,7 @@ module Sumomo
 					"Version" => "2012-10-17",
 					"Statement" => [{
 						"Effect" => "Allow",
-						"Principal" => {"Service" => ["lambda.amazonaws.com"]},
+						"Principal" => {"Service" => ["edgelambda.amazonaws.com", "lambda.amazonaws.com"]},
 						"Action" => ["sts:AssumeRole"]
 					}]
 				}

@@ -1,7 +1,7 @@
 
 module Sumomo
   module Stack
-    def make_cdn_from_dir(domain:, cert:nil, dns:nil, name:nil, dir:, low_ttl: [])
+    def make_cdn_from_dir(domain:, cert:nil, dns:nil, name:nil, dir:, low_ttl: [], lambda_assocs:{})
 
         bucket_name = @bucket_name
 
@@ -84,6 +84,12 @@ module Sumomo
                         QueryString "false"
                         Cookies { Forward "none" }
                     }
+
+                    LambdaFunctionAssociations (lambda_assocs.map do |event_type,arns|
+                        arns.map do |arn|
+                            {EventType: event_type, LambdaFunctionARN: arn}
+                        end.to_a
+                    end.flatten)
                 end
 
                 Logging do
