@@ -160,7 +160,7 @@ function prepare(handler)
 				httpMethod: req.method,
 				headers: headers,
 				queryStringParameters: url.parse(req.url, true).query,
-				pathParameters: req.params,
+				pathParameters: request.params,
 				stageVariables: null,
 				requestContext: {
 					path: parsed_url.pathname,

@@ -69,8 +69,8 @@ module Sumomo
       def self.combine_modules(dest)
           orig_modules = File.join(Gem.loaded_specs['sumomo'].full_gem_path, "data", "sumomo", "api_modules", "node_modules")
 
-          `cp -Rad #{orig_modules}/ #{dest}/`
-          `cp -Rad node_modules/* #{dest}/`
+          `cp -Ra #{orig_modules}/ #{dest}/`
+          `cp -Ra node_modules/* #{dest}/`
       end
 
       def generate
