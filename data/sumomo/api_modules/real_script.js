@@ -75,10 +75,46 @@ function Storage()
         });
     }
 
+    this.list = function(prefix, start_after, onComplete, onError)
+    {
+        var params = {
+            Bucket: "{{ BUCKET }}",
+            Prefix: "data/{{ STORE_PREFIX }}/" + prefix
+        }
+
+        if (start_after)
+        {
+            params.StartAfter = start_after;
+        }
+
+        s3.listObjectsV2(params, function(err, data) {
+            if (err)
+            {
+                if (onError)
+                {
+                    onError(err);
+                }
+            }
+            else
+            {
+                if (onComplete)
+                {
+                    onComplete(data.Contents.map(function(x){ return x.Key; }));
+                }
+            }
+        });
+    }
+
     return this;
 }
 
 var Store = new Storage();
+
+function decode_component(str) {
+    str = str.replace(/\+/g, '%20');
+    str = decodeURIComponent(str);
+    return str;
+}
 
 function parseQuery(queryString) {
     try
@@ -91,7 +127,7 @@ function parseQuery(queryString) {
     var pairs = queryString.split('&');
     for (var i = 0; i < pairs.length; i++) {
         var pair = pairs[i].split('=');
-        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+        query[decode_component(pair[0])] = decode_component(pair[1] || '');
     }
     return query;
 }
