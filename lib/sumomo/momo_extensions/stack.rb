@@ -1,6 +1,7 @@
+# frozen_string_literal: true
 
 module Momo
-	class Stack
-		alias_method :stack_make, :make
-	end 
+  class Stack
+    alias stack_make make
+  end
 end

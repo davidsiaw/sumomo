@@ -1,61 +1,62 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require "trollop"
-require "sumomo"
-require "yaml"
+require 'trollop'
+require 'sumomo'
+require 'yaml'
 
-SUB_COMMANDS = %w(delete create update outputs testapi)
-global_opts = Trollop::options do
+SUB_COMMANDS = %w[delete create update outputs testapi].freeze
+global_opts = Trollop.options do
   banner <<-USAGE
   Sumomo v#{Sumomo::VERSION}
 
   Usage: sumomo [options] <create|update|delete|outputs> <stackname>
   USAGE
 
-  opt :region, "AWS region to use", type: :string, default: "ap-northeast-1"
-  opt :profile, "AWS credential profile to use", type: :string, default: "default"
+  opt :region, 'AWS region to use', type: :string, default: 'ap-northeast-1'
+  opt :profile, 'AWS credential profile to use', type: :string, default: 'default'
 
   stop_on SUB_COMMANDS
 end
 
-ENV["AWS_PROFILE"] = global_opts[:profile]
+ENV['AWS_PROFILE'] = global_opts[:profile]
 
-puts "Using profile:"
-p ENV["AWS_PROFILE"]
+puts 'Using profile:'
+p ENV['AWS_PROFILE']
 
 cmd = ARGV.shift # get the subcommand
 
 cmd_opts = case cmd
-when "delete"
-	Sumomo::delete_stack(name: ARGV[0], region: global_opts[:region])
+           when 'delete'
+             Sumomo.delete_stack(name: ARGV[0], region: global_opts[:region])
 
-when "create", "update"
-	local_opts = Trollop::options do
-		opt :filename, "File that describes the stack", type: :string, default: "Sumomofile"
-	end
-	Sumomo::create_stack(name: ARGV[0], region: global_opts[:region]) do
-		proc = Proc.new {}
-		eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
-	end
+           when 'create', 'update'
+             local_opts = Trollop.options do
+               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
+             end
+             Sumomo.create_stack(name: ARGV[0], region: global_opts[:region]) do
+               proc = proc {}
+               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+             end
 
-when "outputs"
-	puts "Outputs for stack #{ARGV[0]}"
-	puts Sumomo::get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
+           when 'outputs'
+             puts "Outputs for stack #{ARGV[0]}"
+             puts Sumomo.get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
 
-when "testapi"
-	local_opts = Trollop::options do
-		opt :filename, "File that describes the stack", type: :string, default: "Sumomofile"
-		opt :apiname, "Name of the API you want to test", type: :string
-		opt :prettyprint, "Test API outputs JSON with nice indentation", type: :boolean, default: true
-	end
-	puts "API Test Mode"
-	Sumomo::test_api(local_opts[:apiname], local_opts[:prettyprint]) do
-		proc = Proc.new {}
-		eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
-	end
-	exit(0)
-else
-	Trollop::die "Unknown subcommand #{cmd.inspect}"
+           when 'testapi'
+             local_opts = Trollop.options do
+               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
+               opt :apiname, 'Name of the API you want to test', type: :string
+               opt :prettyprint, 'Test API outputs JSON with nice indentation', type: :boolean, default: true
+             end
+             puts 'API Test Mode'
+             Sumomo.test_api(local_opts[:apiname], local_opts[:prettyprint]) do
+               proc = proc {}
+               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+             end
+             exit(0)
+           else
+             Trollop.die "Unknown subcommand #{cmd.inspect}"
 end
 
-Sumomo::wait_for_stack(name: ARGV[0], region: global_opts[:region])
+Sumomo.wait_for_stack(name: ARGV[0], region: global_opts[:region])
