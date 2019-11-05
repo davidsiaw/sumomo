@@ -78,13 +78,16 @@ module Sumomo
       @ec2 = ec2
       @cf = cf
       @s3 = s3
-
-      make 'AWS::EC2::SecurityGroup', name: 'DummyResource' do
-        GroupDescription 'Dummy thing for Cloudformation Deployment.'
-        Tags [{ 'Key' => 'Name', 'Value' => "dummyfordeploy#{dummy_number}" }]
-      end
+      @has_dummy = true
 
       instance_eval(&block)
+
+      if @has_dummy
+        make 'AWS::EC2::SecurityGroup', name: 'DummyResource' do
+          GroupDescription 'Dummy thing for Cloudformation Deployment.'
+          Tags [{ 'Key' => 'Name', 'Value' => "dummyfordeploy#{dummy_number}" }]
+        end
+      end
 
       hidden_values = @hidden_values
     end.templatize
