@@ -26,9 +26,10 @@ module Sumomo
                     runtime: 'nodejs8.10',
                     memory_size: 128,
                     timeout: 30,
-                    with_statements: [])
+                    role: nil)
 
       name ||= make_default_resource_name('Lambda')
+      role ||= custom_resource_exec_role
 
       stringio = Zip::OutputStream.write_buffer do |zio|
         files.each do |file|
@@ -55,7 +56,7 @@ module Sumomo
         Handler handler
         Runtime runtime
         Timeout timeout
-        Role stack.exec_role(with_statements: with_statements).Arn
+        Role role.Arn
       end
 
       log_group = make 'AWS::Logs::LogGroup', name: "#{name}LogGroup" do
@@ -66,11 +67,13 @@ module Sumomo
       fun
     end
 
-    def define_custom_resource(name: nil, code:)
+    def define_custom_resource(name: nil, code:, role: nil)
       name ||= make_default_resource_name('CustomResource')
+      role ||= custom_resource_exec_role
 
       func = make_lambda(
         name: name,
+        role: role,
         files: [
           {
             name: 'index.js',
@@ -114,26 +117,41 @@ module Sumomo
       end
     end
 
-    def exec_role(with_statements: [])
-      @exec_roles = {} if @exec_roles.nil?
+    def lambda_exec_role(statements: [], principals: [])
+      name = make_default_resource_name('LambdaExecRole')
+
+      role_policy_doc = {
+        'Version' => '2012-10-17',
+        'Statement' => [{
+          'Effect' => 'Allow',
+          'Principal' => { 'Service' => principals },
+          'Action' => ['sts:AssumeRole']
+        }]
+      }
+
+      make 'AWS::IAM::Role', name: name do
+        AssumeRolePolicyDocument role_policy_doc
+        Path '/'
+        Policies [
+          {
+            'PolicyName' => name,
+            'PolicyDocument' => {
+              'Version' => '2012-10-17',
+              'Statement' => statements
+            }
+          }
+        ]
+      end
+    end
+
+    def custom_resource_exec_role(with_statements: [])
+      @exec_roles ||= {}
 
       statement_key = JSON.parse(with_statements.to_json)
 
-      unless @exec_roles.key?(statement_key)
-        name = make_default_resource_name('LambdaExecRole')
-
-        role_policy_doc = {
-          'Version' => '2012-10-17',
-          'Statement' => [{
-            'Effect' => 'Allow',
-            'Principal' => { 'Service' => ['edgelambda.amazonaws.com', 'lambda.amazonaws.com'] },
-            'Action' => ['sts:AssumeRole']
-          }]
-        }
-
-        bucket_name = @bucket_name
-
-        statement_list = [
+      @exec_roles[statement_key] ||= lambda_exec_role(
+        principals: ['edgelambda.amazonaws.com', 'lambda.amazonaws.com'],
+        statements: [
           {
             'Effect' => 'Allow',
             'Action' => ['logs:CreateLogStream', 'logs:PutLogEvents'],
@@ -147,7 +165,7 @@ module Sumomo
           {
             'Effect' => 'Allow',
             'Action' => ['s3:DeleteObject', 's3:GetObject', 's3:PutObject'],
-            'Resource' => "arn:aws:s3:::#{bucket_name}/*"
+            'Resource' => "arn:aws:s3:::#{@bucket_name}/*"
           },
           {
             'Effect' => 'Allow',
@@ -163,25 +181,14 @@ module Sumomo
             'Effect' => 'Allow',
             'Action' => ['acm:RequestCertificate', 'acm:DeleteCertificate', 'acm:DescribeCertificate'],
             'Resource' => '*'
+          },
+          {
+            'Effect' => 'Allow',
+            'Action' => ['s3:*'],
+            'Resource' => 'arn:aws:s3:::*'
           }
         ] + with_statements
-
-        @exec_roles[statement_key] = make 'AWS::IAM::Role', name: name do
-          AssumeRolePolicyDocument role_policy_doc
-          Path '/'
-          Policies [
-            {
-              'PolicyName' => name,
-              'PolicyDocument' => {
-                'Version' => '2012-10-17',
-                'Statement' => statement_list
-              }
-            }
-          ]
-        end
-      end
-
-      @exec_roles[statement_key]
+      )
     end
   end
 end

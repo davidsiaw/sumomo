@@ -2,15 +2,24 @@
 
 module Sumomo
   module Stack
+    def copy_to_uploads!(from_directory, to_directory)
+      bucket_name = @bucket_name
+      location = "s3://#{bucket_name}/uploads/#{to_directory}"
+
+      puts 'Uploading files...'
+      `aws --version`
+      `aws s3 --region #{@region} sync #{from_directory} "#{location}" --size-only --delete`
+      puts 'Done.'
+
+      location
+    end
+
     def make_cdn_from_dir(domain:, cert: nil, dns: nil, name: nil, dir:, low_ttl: [], lambda_assocs: {})
       bucket_name = @bucket_name
 
       name ||= make_default_resource_name('CDN')
 
-      puts 'Uploading files...'
-      `aws --version`
-      `aws s3 --region #{@region} sync #{dir} "s3://#{bucket_name}/uploads/#{domain}" --size-only --delete`
-      puts 'Done.'
+      copy_to_uploads!(dir, domain)
 
       oai = make 'Custom::OriginAccessIdentity'
 

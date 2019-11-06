@@ -79,12 +79,16 @@ module Sumomo
       @cf = cf
       @s3 = s3
       @has_dummy = true
+      @dummy_vpc = nil
 
       instance_eval(&block)
 
+      dummy_vpc = @dummy_vpc
+
       if @has_dummy
         make 'AWS::EC2::SecurityGroup', name: 'DummyResource' do
-          GroupDescription 'Dummy thing for Cloudformation Deployment.'
+          GroupDescription 'Dummy resource for tracking Cloudformation Deployment.'
+          VpcId dummy_vpc unless dummy_vpc.nil?
           Tags [{ 'Key' => 'Name', 'Value' => "dummyfordeploy#{dummy_number}" }]
         end
       end
