@@ -4,7 +4,7 @@ var copy_from_dir = request.ResourceProperties.CopyFromDirectory;
 var copy_from_bucket = request.ResourceProperties.CopyFromBucket;
 var success_obj = {
   Arn: "arn:aws:s3:::" + name,
-  DomainName: name + ".s3.amazonaws.com"
+  DomainName: name + ".s3-" + request.ResourceProperties.Region + ".amazonaws.com"
 }
 var error_extra = "";
 
@@ -74,7 +74,12 @@ function copy_files(success, fail)
 
 function create_bucket(name, success, fail)
 {
-  var create_params = { Bucket: name };
+  var create_params = {
+    Bucket: name,
+    CreateBucketConfiguration: {
+      LocationConstraint: request.ResourceProperties.Region
+    }
+  };
 
   s3.createBucket(create_params, function(err, data)
   {

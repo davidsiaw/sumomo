@@ -80,6 +80,7 @@ module Sumomo
       @s3 = s3
       @has_dummy = true
       @dummy_vpc = nil
+      @timeout = nil
 
       instance_eval(&block)
 
@@ -113,7 +114,7 @@ module Sumomo
       cf.update_stack(update_options)
     rescue StandardError => e
       if e.message.end_with? 'does not exist'
-        update_options[:timeout_in_minutes] = 30
+        update_options[:timeout_in_minutes] = @timeout if @timeout
         update_options[:notification_arns] = sns_arn if sns_arn
         cf.create_stack(update_options)
       else
