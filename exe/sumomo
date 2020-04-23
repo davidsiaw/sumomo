@@ -43,6 +43,14 @@ cmd_opts = case cmd
              puts "Outputs for stack #{ARGV[0]}"
              puts Sumomo.get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
 
+           when 'login'
+             puts "Login to stack #{ARGV[0]} instance at #{ARGV[1]}"
+             `aws s3 cp s3://#{ARGV[0]}/cloudformation/#{ARGV[0]}_master_key.pem x.txt`
+             key = JSON.parse(File.read('x.txt'))['value']
+             File.write('key.pem', key)
+             `chmod 0600 key.pem`
+             exec "ssh -i 'key.pem' ec2-user@#{ARGV[1]}"
+
            when 'testapi'
              local_opts = Trollop.options do
                opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
