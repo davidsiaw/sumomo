@@ -144,9 +144,9 @@ var typeToArch = {
 }
 
 var archToAMINamePattern = {
-  "PV64": "amzn-ami-pv*.x86_64-ebs",
-  "HVM64": "amzn-ami-hvm*.x86_64-gp2",
-  "HVMG2": "amzn-ami-graphics-hvm-*x86_64-ebs*"
+  "PV64": "amzn-ami-pv*x86_64-ebs",
+  "HVM64": "amzn2-ami-hvm-2.0.*x86_64-gp2",
+  "HVMG2": "amzn2-ami-graphics-hvm-2.0.*x86_64-ebs*"
 };
 
 var ec2 = new aws.EC2({region: request.ResourceProperties.Region});
@@ -174,7 +174,7 @@ ec2.describeImages(describeImagesParams, function(err, describeImagesResult)
     var response = {}
     var id = "NONE";
     var images = describeImagesResult.Images;
-    // Sort images by name in decscending order. The names contain the AMI version, formatted as YYYY.MM.Ver.
+    // Sort images by name in descending order. The names contain the AMI version, formatted as YYYY.MM.Ver.
     images.sort(function(x, y) { return y.Name.localeCompare(x.Name); });
     for (var j = 0; j < images.length; j++)
     {
