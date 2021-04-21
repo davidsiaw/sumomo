@@ -259,7 +259,4 @@ module Sumomo
 
     map
   end
-
-  singleton_class.send(:alias_method, :create_stack, :create_stack)
-  singleton_class.send(:alias_method, :update_stack, :update_stack)
 end
