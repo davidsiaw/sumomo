@@ -26,6 +26,16 @@ module Sumomo
     "cloudformation/#{make_master_key_name(name: name)}.pem"
   end
 
+  def self.create_stack(name:, region:, sns_arn: nil, &block)
+    cf = Aws::CloudFormation::Client.new(region: region)
+    begin
+      cf.describe_stacks(stack_name: name)
+      raise "There is already a stack named '#{name}'"
+    rescue Aws::CloudFormation::Errors::ValidationError
+      update_stack(name: name, region: region, sns_arn: sns_arn, &block)
+    end
+  end
+
   def self.update_stack(name:, region:, sns_arn: nil, &block)
     cf = Aws::CloudFormation::Client.new(region: region)
     s3 = Aws::S3::Client.new(region: region)
@@ -249,6 +259,4 @@ module Sumomo
 
     map
   end
-
-  singleton_class.send(:alias_method, :create_stack, :update_stack)
 end
