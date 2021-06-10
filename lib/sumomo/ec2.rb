@@ -254,6 +254,7 @@ module Sumomo
       has_public_ips: true,
       ingress: nil,
       egress: nil,
+      security_groups: [],
       machine_tag: nil,
       ec2_sns_arn: nil,
       ami_name: nil,
@@ -297,10 +298,12 @@ module Sumomo
 
       bucket_name = @bucket_name
 
-      script += "\n#{task_script}\n"
+      script_arr = [script]
+
+      script_arr << task_script
 
       if ecs_cluster
-        script += <<~ECS_START
+        script_arr << <<~ECS_START
 
           yum update
           yum groupinstall "Development Tools"
@@ -318,12 +321,12 @@ module Sumomo
       end
 
       if eip
-        script += <<~EIP_ALLOCATE
+        script_arr << <<~EIP_ALLOCATE
           aws ec2 associate-address --region `cat /etc/aws_region` --instance-id `curl http://169.254.169.254/latest/meta-data/instance-id` --allocation-id `cat /etc/eip_allocation_id`
         EIP_ALLOCATE
       end
 
-      script += "\nservice spot-watcher start" if spot_price && ec2_sns_arn
+      script_arr << "service spot-watcher start" if(spot_price && ec2_sns_arn)
 
       unless ingress.is_a? Array
         raise 'ec2: ingress option needs to be an array'
@@ -339,7 +342,7 @@ module Sumomo
 
       wait_handle = make 'AWS::CloudFormation::WaitConditionHandle'
 
-      user_data = initscript(wait_handle, name, script)
+      user_data = initscript(wait_handle, name, call('Fn::Join', "\n", script_arr))
 
       role_policy_doc = {
         'Version' => '2012-10-17',
@@ -407,7 +410,7 @@ module Sumomo
       launch_config = make 'AWS::AutoScaling::LaunchConfiguration' do
         AssociatePublicIpAddress has_public_ips
         KeyName keypair
-        SecurityGroups [web_sec_group]
+        SecurityGroups [web_sec_group] + security_groups
         ImageId ami_name
         UserData user_data
         InstanceType type
