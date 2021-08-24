@@ -1,4 +1,6 @@
-var acm = new aws.ACM({region: "us-east-1"}); // MUST be us-east-1.
+var cert_region = request.ResourceProperties.RegionOverride || request.ResourceProperties.Region;
+
+var acm = new aws.ACM({region: cert_region});
 
 var arn = request.ResourceProperties.Certificate;
 

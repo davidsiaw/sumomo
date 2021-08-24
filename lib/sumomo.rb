@@ -36,7 +36,7 @@ module Sumomo
     end
   end
 
-  def self.update_stack(name:, region:, sns_arn: nil, &block)
+  def self.update_stack(name:, region:, sns_arn: nil, changeset: false, &block)
     cf = Aws::CloudFormation::Client.new(region: region)
     s3 = Aws::S3::Client.new(region: region)
     ec2 = Aws::EC2::Client.new(region: region)
@@ -121,7 +121,15 @@ module Sumomo
     }
 
     begin
-      cf.update_stack(update_options)
+      if changeset
+        cf.create_change_set(
+          **update_options,
+          change_set_name: "Change#{curtimestr}"
+        )
+      else
+        cf.update_stack(update_options)
+      end
+
     rescue StandardError => e
       if e.message.end_with? 'does not exist'
         update_options[:timeout_in_minutes] = @timeout if @timeout
@@ -132,6 +140,10 @@ module Sumomo
         puts "Error: #{e.message}"
       end
     end
+  end
+
+  def self.curtimestr
+    Time.now.strftime('%Y%m%d%H%M%S')
   end
 
   def self.wait_for_stack(name:, region:)

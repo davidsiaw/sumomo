@@ -30,11 +30,21 @@ cmd_opts = case cmd
            when 'delete'
              Sumomo.delete_stack(name: ARGV[0], region: global_opts[:region])
 
-           when 'create', 'update'
+           when 'create'
              local_opts = Trollop.options do
                opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
              end
-             Sumomo.send("#{cmd}_stack", name: ARGV[0], region: global_opts[:region]) do
+             Sumomo.create_stack(name: ARGV[0], region: global_opts[:region]) do
+               proc = proc {}
+               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+             end
+
+           when 'update'
+             local_opts = Trollop.options do
+               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
+               opt :changeset, 'Create a changeset instead of directly update', type: :boolean, default: false
+             end
+             Sumomo.update_stack(name: ARGV[0], changeset: !!local_opts[:changeset], region: global_opts[:region]) do
                proc = proc {}
                eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
              end

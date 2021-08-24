@@ -159,9 +159,45 @@ module Sumomo
       end
     end
 
-    def make_api(domain_name, name:, script: nil, dns: nil, cert: nil, with_statements: [], &block)
+    def make_api(
+        domain_name,
+        name:,
+        script: nil,
+        dns: nil,
+        cert: nil,
+        mtls_truststore: nil,
+        logging: true,
+        with_statements: [], &block)
+
       api = make 'AWS::ApiGateway::RestApi', name: name do
         Name name
+        DisableExecuteApiEndpoint true
+      end
+
+      if logging
+        cloudwatchRole = make 'AWS::IAM::Role', name: "#{name}LoggingRole" do
+          AssumeRolePolicyDocument do
+            Version "2012-10-17"
+            Statement [
+              {
+                "Effect" => "Allow",
+                "Principal" => {
+                  "Service" => [
+                    "apigateway.amazonaws.com"
+                  ]
+                },
+                "Action" => "sts:AssumeRole"
+              }
+            ]
+          end
+          Path '/'
+          ManagedPolicyArns [ "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs" ]
+        end
+
+        make 'AWS::ApiGateway::Account' do
+          depends_on api
+          CloudWatchRoleArn cloudwatchRole.Arn
+        end
       end
 
       script ||= File.read(File.join(Gem.loaded_specs['sumomo'].full_gem_path, 'data', 'sumomo', 'api_modules', 'real_script.js'))
@@ -183,7 +219,10 @@ module Sumomo
 
       files += [{ name: 'index.js', code: script }]
 
-      fun = make_lambda(name: "#{name}Lambda#{@version_number}", files: files, with_statements: with_statements)
+      fun = make_lambda(
+        name: "#{name}Lambda#{@version_number}",
+        files: files, 
+        role: custom_resource_exec_role(with_statements: with_statements) )
 
       resource = make 'AWS::ApiGateway::Resource', name: "#{name}Resource" do
         ParentId api.RootResourceId
@@ -230,18 +269,79 @@ module Sumomo
       stage = make 'AWS::ApiGateway::Stage', name: "#{name}Stage" do
         RestApiId api
         DeploymentId deployment
-        StageName 'test'
+
+        if logging
+          MethodSettings [ 
+            {
+              "ResourcePath" => "/*",
+              "HttpMethod" => "*",
+              "DataTraceEnabled" => true,
+              "LoggingLevel" => 'INFO'
+            }
+          ]
+        end
       end
 
       root_name = /(?<root_name>[^.]+\.[^.]+)$/.match(domain_name)[:root_name]
 
-      cert ||= make 'Custom::USEastCertificate', name: "#{name}Certificate" do
-        DomainName domain_name
+      certificate_completion = cert
+
+      bucket_name = @bucket_name
+      mtls = nil
+      if mtls_truststore
+        filename = "#{domain_name}.truststore.pem"
+        upload_file(filename, mtls_truststore)
+        truststore_uri = "s3://#{bucket_name}/uploads/#{filename}"
+        mtls = {
+          "TruststoreUri" => truststore_uri
+        }
       end
 
-      domain = make 'Custom::APIDomainName', name: "#{name}DomainName" do
+      if cert.nil?
+        cert = make 'Custom::ACMCertificate', name: "#{name}Certificate" do
+          DomainName domain_name
+          ValidationMethod 'DNS' if dns[:type] == :route53
+          RegionOverride 'us-east-1' if !mtls
+        end
+
+        certificate_completion = cert
+
+        if dns[:type] == :route53
+          make 'AWS::Route53::RecordSet', name: "#{name}CertificateRoute53Entry" do
+            HostedZoneId dns[:hosted_zone]
+            Name cert.RecordName
+            Type cert.RecordType
+            TTL 60
+            ResourceRecords [cert.RecordValue]
+          end
+
+          cert_waiter = make 'Custom::ACMCertificateWaiter', name: "#{name}CertificateWaiter" do
+            Certificate cert
+            RegionOverride 'us-east-1' if !mtls
+          end
+
+          certificate_completion = cert_waiter
+        end
+      end
+
+      domain = make 'AWS::ApiGateway::DomainName', name: "#{name}DomainName" do
+        depends_on certificate_completion
+
         DomainName domain_name
-        CertificateArn cert
+
+        if mtls != nil
+          RegionalCertificateArn cert
+          MutualTlsAuthentication mtls
+          SecurityPolicy 'TLS_1_2'
+          EndpointConfiguration do
+            Types [ 'REGIONAL' ]
+          end
+        else
+          CertificateArn cert
+          EndpointConfiguration do
+            Types [ 'EDGE' ]
+          end
+        end
       end
 
       make 'AWS::ApiGateway::BasePathMapping', name: "#{name}BasePathMapping" do
@@ -264,8 +364,19 @@ module Sumomo
         make 'AWS::Route53::RecordSet', name: "#{name}Route53Entry" do
           HostedZoneId dns[:hosted_zone]
           Name domain_name
-          Type 'CNAME'
-          ResourceRecords [call('Fn::Join', '', [api, '.execute-api.', ref('AWS::Region'), '.amazonaws.com'])]
+
+          if mtls != nil
+            Type 'A'
+            AliasTarget do
+              DNSName domain.RegionalDomainName
+              HostedZoneId domain.RegionalHostedZoneId
+            end
+          else
+            Type 'A'
+            AliasTarget do
+              DNSName domain.DistributionDomainName
+              HostedZoneId domain.DistributionHostedZoneId
+            end          end
         end
         domain_name
       else
