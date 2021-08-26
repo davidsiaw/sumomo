@@ -209,7 +209,14 @@ module Sumomo
       instance_eval(&block)
     end
 
-    def make_api(_domain_name, name:, script: nil, dns: nil, cert: nil, with_statements: [], &block)
+    def make_api(_domain_name,
+      name:, script: nil,
+      dns: nil,
+      mtls_truststore: nil,
+      cert: nil,
+      with_statements: [], &block)
+
+      # we ignore mtls_truststore here
       @apis[name] = block
     end
 
