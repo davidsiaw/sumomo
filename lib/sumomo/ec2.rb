@@ -96,6 +96,7 @@ module Sumomo
            call('Fn::Join', '', [
 
                   "#!/bin/bash -v\n",
+                  "yum install -y aws-cfn-bootstrap\n",
                   "yum update -y aws-cfn-bootstrap\n",
 
                   "# Helper function\n",
@@ -510,7 +511,7 @@ module Sumomo
 
         if ecs_cluster
           ecs_config = <<~CONFIG
-            ECS_CLUSTER={{cluster_name}}
+            ECS_CLUSTER={{ cluster_name }}
             ECS_ENGINE_AUTH_TYPE=docker
             ECS_ENGINE_AUTH_DATA={"https://index.docker.io/v1/":{"username":"{{docker_username}}","password":"{{docker_password}}","email":"{{docker_email}}"}}
           CONFIG

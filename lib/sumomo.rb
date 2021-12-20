@@ -117,7 +117,7 @@ module Sumomo
       stack_name: name,
       template_url: store.url('cloudformation/template'),
       parameters: hidden_values,
-      disable_rollback: true,
+      disable_rollback: false,
       capabilities: ['CAPABILITY_IAM']
     }
 

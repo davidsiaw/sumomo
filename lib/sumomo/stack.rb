@@ -26,6 +26,7 @@ module Sumomo
                     runtime: 'nodejs14.x',
                     memory_size: 128,
                     timeout: 30,
+                    enable_logging: true,
                     role: nil)
 
       name ||= make_default_resource_name('Lambda')
@@ -59,9 +60,11 @@ module Sumomo
         Role role.Arn
       end
 
-      log_group = make 'AWS::Logs::LogGroup', name: "#{name}LogGroup" do
-        LogGroupName call('Fn::Join', '', ['/aws/lambda/', fun])
-        RetentionInDays 30
+      if enable_logging
+        make 'AWS::Logs::LogGroup', name: "#{name}LogGroup" do
+          LogGroupName call('Fn::Join', '', ['/aws/lambda/', fun])
+          RetentionInDays 30
+        end
       end
 
       fun
