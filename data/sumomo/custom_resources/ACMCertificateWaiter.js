@@ -11,6 +11,8 @@ function wait_for_approval(on_success, on_fail)
   };
 
   acm.describeCertificate(params, function(err, cert_data) {
+    console.log('describe certificate data');
+    console.log(cert_data);;
     if (err)
     {
       on_fail(err);
@@ -38,6 +40,8 @@ function wait_for_approval(on_success, on_fail)
 
 function fail(err)
 {
+  console.log('Errored.');
+  console.log(err);
   Cloudformation.send(request, context, Cloudformation.FAILED, {}, "Error: " + err);
 }
 

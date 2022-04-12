@@ -4,6 +4,8 @@ var acm = new aws.ACM({region: cert_region});
 
 var return_properties = {};
 
+var retries = 0;
+
 function extractRootDomain(domain)
 {
   var splitArr = domain.split('.');
@@ -12,26 +14,55 @@ function extractRootDomain(domain)
   //extracting the root domain here
   if (arrLen > 2)
   {
-      domain = splitArr[arrLen - 2] + '.' + splitArr[arrLen - 1];
+      domain = splitArr.slice(1).join(".");
   }
   return domain;
 }
 
 function wait_for_approval(domain_name, on_success, on_fail)
 {
+  console.log('read domain: ', domain_name);
   get_domain(domain_name, function(data)
   {
+    console.log('loaded domain data: ');
+    console.log(data);
+
     var params = {
       CertificateArn: data.arn
     };
 
     acm.describeCertificate(params, function(err, cert_data) {
+      console.log('received certificate data');
+      console.log(cert_data);
+      console.log(cert_data.Certificate.DomainValidationOptions);
+      console.log(cert_data.Certificate.DomainValidationOptions[0]);
+
+
       if (err)
       {
         on_fail(err);
       }
       else
       {
+        if (!cert_data.Certificate.DomainValidationOptions[0].ResourceRecord)
+        {
+          // damn AWS now does not return this information immediately
+          // and we have to wait for it.
+          return setTimeout(function()
+          {
+            console.log('no ResourceRecord found, retrying...', "attempts:", retries);
+            if (retries < 60)
+            {
+              wait_for_approval(domain_name, on_success, on_fail);
+              retries += 1;
+            }
+            else
+            {
+              on_fail('AWS did not return ResourceRecord. (AWS issue)');
+            }
+            
+          }, 1000);
+        }
         // Do not wait if we requested DNS validation        
         if (request.ResourceProperties.ValidationMethod === "DNS")
         {

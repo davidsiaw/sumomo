@@ -118,7 +118,7 @@ module Sumomo
       template_url: store.url('cloudformation/template'),
       parameters: hidden_values,
       disable_rollback: false,
-      capabilities: ['CAPABILITY_IAM']
+      capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
     }
 
     begin

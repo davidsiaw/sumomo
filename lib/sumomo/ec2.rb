@@ -268,6 +268,7 @@ module Sumomo
       docker_password: '',
       eip: nil,
       policies: [],
+      scalein_protection: true,
       &block
     )
 
@@ -463,6 +464,8 @@ module Sumomo
         MaxSize max_size
 
         VPCZoneIdentifier subnet_ids
+
+        NewInstancesProtectedFromScaleIn scalein_protection
 
         LaunchConfigurationName launch_config
         LoadBalancerNames [elb] if elb
