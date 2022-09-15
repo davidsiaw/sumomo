@@ -24,8 +24,11 @@ module Sumomo
                     function_key: "cloudformation/lambda/function_#{name}",
                     handler: 'index.handler',
                     runtime: 'nodejs14.x',
+                    env: {},
                     memory_size: 128,
                     timeout: 30,
+                    network: nil,
+                    layer: nil,
                     enable_logging: true,
                     role: nil)
 
@@ -45,6 +48,29 @@ module Sumomo
         end
       end
 
+      vpcconfig = nil
+
+      if network != nil
+
+        layer ||= network.subnets.keys.first
+
+        ingress = [allow_port(:all)]
+        egress = [allow_port(:all)]
+
+        lambda_sec_group = make 'AWS::EC2::SecurityGroup' do
+          GroupDescription "Lambda Security group for layer: #{layer}"
+          SecurityGroupIngress ingress
+          SecurityGroupEgress egress
+          VpcId network.vpc
+        end
+
+        subnetids = network.subnets[layer].map { |x| x[:name] }
+        vpcconfig = {
+          SecurityGroupIds: [lambda_sec_group],
+          SubnetIds: subnetids
+        }
+      end
+
       @store.set_raw(function_key, stringio.string)
 
       stack = self
@@ -58,6 +84,10 @@ module Sumomo
         Runtime runtime
         Timeout timeout
         Role role.Arn
+        VpcConfig vpcconfig unless vpcconfig.nil?
+        Environment do
+          Variables env
+        end
       end
 
       if enable_logging

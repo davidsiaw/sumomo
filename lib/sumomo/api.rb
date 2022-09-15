@@ -163,10 +163,13 @@ module Sumomo
         domain_name,
         name:,
         script: nil,
+        env: {},
         dns: nil,
         cert: nil,
         mtls_truststore: nil,
         logging: true,
+        network: nil,
+        layer: nil,
         with_statements: [], &block)
 
       api = make 'AWS::ApiGateway::RestApi', name: name do
@@ -221,6 +224,9 @@ module Sumomo
 
       fun = make_lambda(
         name: "#{name}Lambda#{@version_number}",
+        env: env,
+        network: network,
+        layer: layer,
         files: files, 
         role: custom_resource_exec_role(with_statements: with_statements) )
 
