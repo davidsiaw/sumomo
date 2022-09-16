@@ -160,12 +160,13 @@ exports.handler = function(event, context, callback) {
 
     var request = {
         _native_req: event,
-        url: "https://something" + event.path,
+        url: "https://" + event.headers.Host + event.path,
         method: event.httpMethod,
         params: {}
     }
 
     console.log(request);
+    context.callbackWaitsForEmptyEventLoop = false;
 
     router(request, callback, function(err) {
         callback(null, {

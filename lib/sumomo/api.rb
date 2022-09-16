@@ -143,7 +143,7 @@ module Sumomo
           body: JSON.stringify(response_object#{pretty_print})
         };
 
-        callback(null, response);
+        return callback(null, response);
       }
 
       var retval = function (#{parameter_list}) {
