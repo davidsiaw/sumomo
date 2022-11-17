@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module Sumomo
-  VERSION = '0.8.17'
+  VERSION = '0.8.20'
 end
