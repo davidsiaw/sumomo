@@ -120,7 +120,7 @@ module Sumomo
       capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
     }
 
-    update_options[disable_rollback] = false if !changeset
+    update_options[:disable_rollback] = false if !changeset
 
     begin
       if changeset
