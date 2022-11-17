@@ -64,6 +64,10 @@ module Sumomo
           VpcId network.vpc
         end
 
+        make 'Custom::VPCDestroyENI' do
+          SecurityGroups [lambda_sec_group]
+        end
+
         subnetids = network.subnets[layer].map { |x| x[:name] }
         vpcconfig = {
           SecurityGroupIds: [lambda_sec_group],
@@ -84,9 +88,21 @@ module Sumomo
         Runtime runtime
         Timeout timeout
         Role role.Arn
-        VpcConfig vpcconfig unless vpcconfig.nil?
+        
         Environment do
           Variables env
+        end
+
+        if !vpcconfig.nil?
+          VpcConfig vpcconfig
+
+          vpcconfig[:SecurityGroupIds].each do |x|
+            depends_on x
+          end
+
+          vpcconfig[:SubnetIds].each do |x|
+            depends_on x
+          end
         end
       end
 

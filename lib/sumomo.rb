@@ -117,9 +117,10 @@ module Sumomo
       stack_name: name,
       template_url: store.url('cloudformation/template'),
       parameters: hidden_values,
-      disable_rollback: false,
       capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
     }
+
+    update_options[disable_rollback] = false if !changeset
 
     begin
       if changeset

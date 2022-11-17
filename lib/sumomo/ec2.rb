@@ -268,7 +268,7 @@ module Sumomo
       docker_password: '',
       eip: nil,
       policies: [],
-      scalein_protection: true,
+      scalein_protection: false,
       &block
     )
 
