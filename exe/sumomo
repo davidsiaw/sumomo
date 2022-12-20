@@ -62,7 +62,7 @@ cmd_opts = case cmd
               gsub(/(.{64}) /, "\\1\n")
              File.write('key.pem', key)
              `chmod 0600 key.pem`
-             exec "ssh -i -hostkey=* 'key.pem' ec2-user@#{ARGV[1]} #{ARGV[2]}"
+             exec "ssh -i 'key.pem' ec2-user@#{ARGV[1]} #{ARGV[2]}"
 
            when 'testapi'
              local_opts = Trollop.options do
