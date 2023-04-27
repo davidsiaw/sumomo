@@ -277,7 +277,7 @@ module Sumomo
         @ami_lookup_resources ||= {}
 
         unless @ami_lookup_resources[type]
-          @ami_lookup_resources[type] = make 'Custom::AMILookup' do
+          @ami_lookup_resources[type] = make 'Custom::AMILookup', name: "#{name}AmiLookup" do
             InstanceType type
           end
         end
@@ -335,14 +335,14 @@ module Sumomo
        end
       raise 'ec2: egress option needs to be an array' unless egress.is_a? Array
 
-      web_sec_group = make 'AWS::EC2::SecurityGroup' do
+      web_sec_group = make 'AWS::EC2::SecurityGroup', name: "#{name}SecurityGroup" do
         GroupDescription "Security group for layer: #{layer}"
         SecurityGroupIngress ingress
         SecurityGroupEgress egress
         VpcId network.vpc
       end
 
-      wait_handle = make 'AWS::CloudFormation::WaitConditionHandle'
+      wait_handle = make 'AWS::CloudFormation::WaitConditionHandle', name: "#{name}WaitConditionHandle"
 
       user_data = initscript(wait_handle, name, call('Fn::Join', "\n", script_arr))
 
@@ -355,7 +355,7 @@ module Sumomo
         }]
       }
 
-      asg_role = make 'AWS::IAM::Role' do
+      asg_role = make 'AWS::IAM::Role', name: "#{name}Role" do
         AssumeRolePolicyDocument role_policy_doc
         Path '/'
         Policies [{
@@ -404,12 +404,12 @@ module Sumomo
         }]
       end
 
-      asg_profile = make 'AWS::IAM::InstanceProfile' do
+      asg_profile = make 'AWS::IAM::InstanceProfile', name: "#{name}InstanceProfile" do
         Path '/'
         Roles [asg_role]
       end
 
-      launch_config = make 'AWS::AutoScaling::LaunchConfiguration' do
+      launch_config = make 'AWS::AutoScaling::LaunchConfiguration', name: "#{name}LaunchConfiguration" do
         AssociatePublicIpAddress has_public_ips
         KeyName keypair
         SecurityGroups [web_sec_group] + security_groups
