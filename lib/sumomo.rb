@@ -26,17 +26,7 @@ module Sumomo
     "cloudformation/#{make_master_key_name(name: name)}.pem"
   end
 
-  def self.create_stack(name:, region:, sns_arn: nil, &block)
-    cf = Aws::CloudFormation::Client.new(region: region)
-    begin
-      cf.describe_stacks(stack_name: name)
-      raise "There is already a stack named '#{name}'"
-    rescue Aws::CloudFormation::Errors::ValidationError
-      update_stack(name: name, region: region, sns_arn: sns_arn, &block)
-    end
-  end
-
-  def self.update_stack(name:, region:, sns_arn: nil, changeset: false, &block)
+  def self.manage_stack(name:, region:, cmd:'update', sns_arn: nil, changeset: false, &block)
     cf = Aws::CloudFormation::Client.new(region: region)
     s3 = Aws::S3::Client.new(region: region)
     ec2 = Aws::EC2::Client.new(region: region)
@@ -107,9 +97,66 @@ module Sumomo
       hidden_values = @hidden_values
     end.templatize
 
-    # TODO: if the template is too big, split it into nested templates
+    templatedata = JSON.parse(template)
 
-    # puts JSON.parse(template).to_yaml
+    if cmd == 'show'
+      puts templatedata.to_yaml
+      return
+    end
+
+    if cmd == 'diff'
+      store.set_raw('cloudformation/temporary_template', template)
+      update_options = {
+        stack_name: name,
+        template_url: store.url('cloudformation/temporary_template'),
+        parameters: hidden_values,
+        capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
+      }
+
+      change_set_name = "CanaryChange#{curtimestr}"
+
+      puts "Create change set"
+
+      cf.create_change_set(
+        **update_options,
+        change_set_name: change_set_name
+      )
+
+      resp = nil
+
+      puts "Wait for change set"
+
+      loop do
+        sleep 5
+        resp = cf.describe_change_set({
+          change_set_name: change_set_name,
+          stack_name: name
+        })
+        puts "#{change_set_name} #{resp.status}"
+
+        break unless resp.status.end_with? 'IN_PROGRESS'
+      end
+
+      puts "Cleaning up..."
+
+      cf.delete_change_set({
+        change_set_name: change_set_name,
+        stack_name: name,
+      })
+
+      puts 'Change list'
+
+      clist = process_changeset_response(resp)
+      drifts = get_drifts(templatedata, cf, name)
+
+      # puts clist.to_yaml
+      # puts drifts.to_yaml
+      puts humanize_changeset_response(clist, drifts, templatedata).to_yaml
+
+      return
+    end
+
+    # TODO: if the template is too big, split it into nested templates
 
     store.set_raw('cloudformation/template', template)
 
@@ -142,6 +189,137 @@ module Sumomo
         puts "Error: #{e.message}"
       end
     end
+  end
+
+  def self.get_drifts(templatedata, cf, stack_name)
+    drifts = {}
+
+    templatedata['Resources'].each do |k,info|
+      puts "detect drift for #{k}"
+
+      rd = cf.detect_stack_resource_drift({
+        stack_name: stack_name, # required
+        logical_resource_id: k, # required
+      })
+
+      diffinfo = {}
+      differences = []
+
+      rd.stack_resource_drift.property_differences.each do |pd|
+        res = {}
+
+        %w[property_path expected_value actual_value difference_type].each do |att|
+          res[att] = pd.send(att.to_sym)
+        end
+
+        differences << res
+      end
+
+      %w[resource_type expected_properties actual_properties stack_resource_drift_status].each do |key|
+        diffinfo[key] = rd.stack_resource_drift.send(key.to_sym)
+      end
+
+      diffinfo['differences'] = differences
+
+      drifts[k] = diffinfo
+
+    rescue Aws::CloudFormation::Errors::ValidationError => e
+      drifts[k] = {
+        "exception" => e.message
+      }
+
+    end
+
+    drifts
+  end
+
+  def self.process_changeset_response(resp)
+    result = {}
+
+    resp.changes.each do |change|
+      info = {}
+
+      %w[action physical_resource_id resource_type replacement].each do |k|
+        info[k] = change.resource_change.send(k.to_sym)
+      end
+
+      details = []
+
+      change.resource_change.details.each do |detail|
+
+        detailinfo = {}
+
+        %w[attribute name requires_recreation].each do |k|
+          detailinfo[k] = detail.target.send(k.to_sym)
+        end
+
+        %w[evaluation change_source causing_entity].each do |k|
+          detailinfo[k] = detail.send(k.to_sym)
+        end
+
+        details << detailinfo
+      end
+
+      info['details'] = details
+
+      result[change.resource_change.logical_resource_id] = info
+    end
+
+    result
+  end
+
+  def self.humanize_changeset_response(clist, drifts, templatedata)
+    # refs
+    # https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/CloudFormation/Types/ResourceChange.html
+    # https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/CloudFormation/Types/ResourceTargetDefinition.html
+
+    result = {}
+
+    clist.each do |k,info|
+
+      if info['action'] == 'Modify'
+
+        z = if info['replacement'] != 'False'
+          result['Replace'] ||= {}
+        else
+          result['Modify'] ||= {}
+        end
+
+        z[k] = {}
+
+        info['details'].each do |detail|
+
+          propname = detail['attribute'] 
+          if detail['attribute'] == 'Properties'
+            propname = detail['name']
+          end
+
+          fr = templatedata['Resources'][k]
+          tr = drifts[k]
+
+          fromprops = fr['Properties']
+          toprops = {}
+
+          if tr['actual_properties']
+            toprops = JSON.parse(tr['actual_properties'])
+          end
+
+
+          z[k][propname] = {
+            'From' => toprops[propname],
+            'To' => fromprops[propname]
+          }
+        end
+      else
+        z = result[info['action']] ||= {}
+
+        z[k] = {}
+      end
+
+    end
+
+    result
+
   end
 
   def self.curtimestr

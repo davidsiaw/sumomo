@@ -2,6 +2,7 @@ var s3 = new aws.S3();
 var name = request.ResourceProperties.BucketName;
 var copy_from_dir = request.ResourceProperties.CopyFromDirectory;
 var copy_from_bucket = request.ResourceProperties.CopyFromBucket;
+var disable_acl = request.ResourceProperties.DisableACL;
 var success_obj = {
   Arn: "arn:aws:s3:::" + name,
   DomainName: name + ".s3-" + request.ResourceProperties.Region + ".amazonaws.com"
@@ -72,6 +73,38 @@ function copy_files(success, fail)
   );
 }
 
+function apply_ownership_policy(name, success, fail)
+{
+  if (disable_acl)
+  {
+    // ACL is disabled by default, so we simply skip this step.
+    return copy_files(success, fail);
+  }
+
+  var params = {
+    Bucket: name,
+    OwnershipControls: {
+      Rules: [
+        {
+          ObjectOwnership: "BucketOwnerPreferred"
+        }
+      ]
+    }
+  };
+
+  s3.putBucketOwnershipControls(params, function(err, data)
+  {
+    if (err)
+    {
+      fail(err);
+    }
+    else
+    {
+      copy_files(success, fail);
+    }
+  });
+}
+
 function create_bucket(name, success, fail)
 {
   var create_params = {
@@ -89,7 +122,7 @@ function create_bucket(name, success, fail)
     }
     else
     {
-      copy_files(success, fail);
+      apply_ownership_policy(name, success, fail);
     }
   });
 }

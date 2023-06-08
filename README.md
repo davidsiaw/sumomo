@@ -40,19 +40,28 @@ output "Haha", x
 
 To create a stack that acquires an IP Address and outputs it
 
-	$ sumomo create mystack
+    $ sumomo create mystack
 
 To view a stack's outputs
 
-	$ sumomo outputs mystack
+    $ sumomo outputs mystack
 
 To update a stack
 
-	$ sumomo update mystack
+    $ sumomo update mystack
 
 To delete a stack
 
-	$ sumomo delete mystack
+    $ sumomo delete mystack
+
+To view what changes your stuff will cause to your stack
+
+    $ sumomo diff mystack
+
+To see the raw cloudformation template
+
+    $ sumomo show mystack
+
 
 ## Library Usage
 

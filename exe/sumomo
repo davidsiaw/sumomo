@@ -5,12 +5,12 @@ require 'trollop'
 require 'sumomo'
 require 'yaml'
 
-SUB_COMMANDS = %w[delete create update outputs testapi].freeze
+SUB_COMMANDS = %w[delete create update outputs show diff testapi].freeze
 global_opts = Trollop.options do
   banner <<-USAGE
   Sumomo v#{Sumomo::VERSION}
 
-  Usage: sumomo [options] <create|update|delete|outputs> <stackname>
+  Usage: sumomo [options] <#{SUB_COMMANDS.join('|')}> <stackname>
   USAGE
 
   opt :region, 'AWS region to use', type: :string, default: 'ap-northeast-1'
@@ -30,21 +30,12 @@ cmd_opts = case cmd
            when 'delete'
              Sumomo.delete_stack(name: ARGV[0], region: global_opts[:region])
 
-           when 'create'
-             local_opts = Trollop.options do
-               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
-             end
-             Sumomo.create_stack(name: ARGV[0], region: global_opts[:region]) do
-               proc = proc {}
-               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
-             end
-
-           when 'update'
+           when 'create', 'update', 'show', 'diff'
              local_opts = Trollop.options do
                opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
                opt :changeset, 'Create a changeset instead of directly update', type: :boolean, default: false
              end
-             Sumomo.update_stack(name: ARGV[0], changeset: !!local_opts[:changeset], region: global_opts[:region]) do
+             Sumomo.manage_stack(name: ARGV[0], cmd: cmd, changeset: !!local_opts[:changeset], region: global_opts[:region]) do
                proc = proc {}
                eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
              end
@@ -80,4 +71,6 @@ cmd_opts = case cmd
              Trollop.die "Unknown subcommand #{cmd.inspect}"
 end
 
-Sumomo.wait_for_stack(name: ARGV[0], region: global_opts[:region])
+unless %w[show diff].include?(cmd)
+  Sumomo.wait_for_stack(name: ARGV[0], region: global_opts[:region])
+end
