@@ -26,7 +26,14 @@ module Sumomo
     "cloudformation/#{make_master_key_name(name: name)}.pem"
   end
 
-  def self.manage_stack(name:, region:, cmd:'update', sns_arn: nil, changeset: false, &block)
+  def self.manage_stack(
+    name:, 
+    region:, 
+    cmd:'update', 
+    sns_arn: nil, 
+    rollback: :unspecified, 
+    changeset: false, &block)
+
     cf = Aws::CloudFormation::Client.new(region: region)
     s3 = Aws::S3::Client.new(region: region)
     ec2 = Aws::EC2::Client.new(region: region)
@@ -164,6 +171,7 @@ module Sumomo
       stack_name: name,
       template_url: store.url('cloudformation/template'),
       parameters: hidden_values,
+      disable_rollback: rollback == :disable,
       capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
     }
 
@@ -446,6 +454,12 @@ module Sumomo
       bucket = s3.bucket(name)
       bucket.delete!
     end
+  end
+
+  def self.rollback_stack(name:, region:)
+    cf = Aws::CloudFormation::Client.new(region: region)
+
+    cf.rollback_stack(stack_name: name)
   end
 
   def self.get_stack_outputs(name:, region:)

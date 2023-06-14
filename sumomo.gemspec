@@ -38,6 +38,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'momo', '0.4.1'
   spec.add_dependency 'rubyzip'
   spec.add_dependency 's3cabinet'
-  spec.add_dependency 'trollop'
+  spec.add_dependency 'optimist'
   spec.add_dependency 'webrick'
 end

@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'trollop'
+require 'optimist'
 require 'sumomo'
 require 'yaml'
 
 SUB_COMMANDS = %w[delete create update outputs show diff testapi].freeze
-global_opts = Trollop.options do
+global_opts = Optimist.options do
   banner <<-USAGE
   Sumomo v#{Sumomo::VERSION}
 
@@ -26,49 +26,67 @@ p ENV['AWS_PROFILE']
 
 cmd = ARGV.shift # get the subcommand
 
-cmd_opts = case cmd
-           when 'delete'
-             Sumomo.delete_stack(name: ARGV[0], region: global_opts[:region])
+case cmd
+  when 'delete'
+    Sumomo.delete_stack(name: ARGV[0], region: global_opts[:region])
 
-           when 'create', 'update', 'show', 'diff'
-             local_opts = Trollop.options do
-               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
-               opt :changeset, 'Create a changeset instead of directly update', type: :boolean, default: false
-             end
-             Sumomo.manage_stack(name: ARGV[0], cmd: cmd, changeset: !!local_opts[:changeset], region: global_opts[:region]) do
-               proc = proc {}
-               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
-             end
+  when 'rollback'
+    Sumomo.rollback_stack(name: ARGV[0], region: global_opts[:region])
 
-           when 'outputs'
-             puts "Outputs for stack #{ARGV[0]}"
-             puts Sumomo.get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
+  when 'create', 'update', 'show', 'diff'
+    local_opts = Optimist.options do
+      opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
+      opt :changeset, 'Create a changeset instead of directly update', type: :boolean, default: false
+      opt :rollback, 'Specify whether or not to rollback. Allowed values are [enable, disable]', type: :string, default: 'unspecified'
+    end
 
-           when 'login'
-             puts "Login to stack #{ARGV[0]} instance at #{ARGV[1]}"
-             `aws s3 cp s3://#{ARGV[0]}/cloudformation/#{ARGV[0]}_master_key.pem x.txt`
-             key = JSON.parse(File.read('x.txt'))['value'].
-              gsub('-----BEGIN RSA PRIVATE KEY----- ', "-----BEGIN RSA PRIVATE KEY-----\n").
-              gsub(' -----END RSA PRIVATE KEY-----', "\n-----END RSA PRIVATE KEY-----").
-              gsub(/(.{64}) /, "\\1\n")
-             File.write('key.pem', key)
-             `chmod 0600 key.pem`
-             exec "ssh -i 'key.pem' ec2-user@#{ARGV[1]} #{ARGV[2]}"
+    changeset = !!local_opts[:changeset]
+    rollback = local_opts[:rollback].to_sym
 
-           when 'testapi'
-             local_opts = Trollop.options do
-               opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
-               opt :apiname, 'Name of the API you want to test', type: :string
-               opt :prettyprint, 'Test API outputs JSON with nice indentation', type: :boolean, default: true
-             end
-             puts 'API Test Mode'
-             Sumomo.test_api(local_opts[:apiname], local_opts[:prettyprint]) do
-               proc = proc {}
-               eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
-             end
-             exit(0)
-           else
-             Trollop.die "Unknown subcommand #{cmd.inspect}"
+    if rollback == :disable && local_opts[:changeset] == false
+      Optimist.die "Rollback cannot be set to disable when changeset is set to false, because we will end up in an update-failed state"
+    end
+
+    Sumomo.manage_stack(
+      name: ARGV[0], 
+      cmd: cmd, 
+      changeset: changeset, 
+      region: global_opts[:region],
+      rollback: rollback) do
+
+      proc = proc {}
+      eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+    end
+
+  when 'outputs'
+    puts "Outputs for stack #{ARGV[0]}"
+    puts Sumomo.get_stack_outputs(name: ARGV[0], region: global_opts[:region]).to_yaml
+
+  when 'login'
+    puts "Login to stack #{ARGV[0]} instance at #{ARGV[1]}"
+      `aws s3 cp s3://#{ARGV[0]}/cloudformation/#{ARGV[0]}_master_key.pem x.txt`
+    key = JSON.parse(File.read('x.txt'))['value'].
+      gsub('-----BEGIN RSA PRIVATE KEY----- ', "-----BEGIN RSA PRIVATE KEY-----\n").
+      gsub(' -----END RSA PRIVATE KEY-----', "\n-----END RSA PRIVATE KEY-----").
+      gsub(/(.{64}) /, "\\1\n")
+    File.write('key.pem', key)
+    `chmod 0600 key.pem`
+    exec "ssh -i 'key.pem' ec2-user@#{ARGV[1]} #{ARGV[2]}"
+
+  when 'testapi'
+    local_opts = Optimist.options do
+      opt :filename, 'File that describes the stack', type: :string, default: 'Sumomofile'
+      opt :apiname, 'Name of the API you want to test', type: :string
+      opt :prettyprint, 'Test API outputs JSON with nice indentation', type: :boolean, default: true
+    end
+    puts 'API Test Mode'
+    Sumomo.test_api(local_opts[:apiname], local_opts[:prettyprint]) do
+      proc = proc {}
+      eval File.read(local_opts[:filename]), proc.binding, local_opts[:filename]
+    end
+    exit(0)
+  else
+    Optimist.die "Unknown subcommand #{cmd.inspect}"
 end
 
 unless %w[show diff].include?(cmd)
