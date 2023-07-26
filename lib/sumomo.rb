@@ -42,6 +42,8 @@ module Sumomo
       s3.head_bucket(bucket: name)
     rescue Aws::S3::Errors::NotFound => e
       s3.create_bucket(bucket: name)
+    rescue => e
+      exit 1
     end
 
     store = S3Cabinet::S3Cabinet.new(nil, nil, name, region)
@@ -171,11 +173,8 @@ module Sumomo
       stack_name: name,
       template_url: store.url('cloudformation/template'),
       parameters: hidden_values,
-      disable_rollback: rollback == :disable,
       capabilities: ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM']
     }
-
-    update_options[:disable_rollback] = false if !changeset
 
     begin
       if changeset
@@ -184,7 +183,10 @@ module Sumomo
           change_set_name: "Change#{curtimestr}"
         )
       else
-        cf.update_stack(update_options)
+        cf.update_stack({
+          disable_rollback: rollback == :disable,
+          **update_options
+        })
       end
 
     rescue StandardError => e
@@ -193,7 +195,7 @@ module Sumomo
         update_options[:notification_arns] = sns_arn if sns_arn
         cf.create_stack(update_options)
       else
-        p e
+        p update_options
         puts "Error: #{e.message}"
       end
     end

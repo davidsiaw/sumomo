@@ -203,7 +203,7 @@ module Sumomo
         statements: [
           {
             'Effect' => 'Allow',
-            'Action' => ['logs:CreateLogStream', 'logs:PutLogEvents'],
+            'Action' => ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
             'Resource' => 'arn:aws:logs:*:*:*'
           },
           {
