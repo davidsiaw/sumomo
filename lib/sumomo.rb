@@ -43,6 +43,7 @@ module Sumomo
     rescue Aws::S3::Errors::NotFound => e
       s3.create_bucket(bucket: name)
     rescue => e
+      puts "Error: #{e}"
       exit 1
     end
 

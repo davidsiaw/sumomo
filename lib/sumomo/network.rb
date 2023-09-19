@@ -5,29 +5,47 @@ require 'hashie'
 
 module Sumomo
   module Stack
-    def make_network(layers: [])
-      zones = get_azs
-
-      region = @region
-
-      vpc = make 'AWS::EC2::VPC' do
+    def make_vpc
+      make 'AWS::EC2::VPC' do
         CidrBlock '10.0.0.0/16'
         EnableDnsSupport true
         EnableDnsHostnames true
         tag 'Name', call('Fn::Join', '-', [ref('AWS::StackName')])
       end
+    end
 
-      gateway = make 'AWS::EC2::InternetGateway' do
+    def make_gateway
+      make 'AWS::EC2::InternetGateway' do
         tag 'Name', call('Fn::Join', '-', [ref('AWS::StackName')])
       end
+    end
 
-      attachment = make 'AWS::EC2::VPCGatewayAttachment' do
-        VpcId vpc
-        InternetGatewayId gateway
+    def make_network(
+        layers: [], 
+        use_vpc: nil,
+        use_gateway: nil
+      )
+      zones = get_azs
+
+      region = @region
+
+      vpc = use_vpc || make_vpc
+
+      gateway = use_gateway || make_gateway
+
+      attachment = nil
+
+      if !use_vpc && !use_gateway
+        attachment = make 'AWS::EC2::VPCGatewayAttachment' do
+          VpcId vpc
+          InternetGatewayId gateway
+        end
       end
 
       inet_route_table = make 'AWS::EC2::RouteTable' do
-        depends_on attachment
+        if attachment
+          depends_on attachment
+        end
         VpcId vpc
         tag 'Name', call('Fn::Join', '-', ['public', ref('AWS::StackName')])
       end
