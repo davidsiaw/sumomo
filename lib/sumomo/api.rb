@@ -295,7 +295,7 @@ module Sumomo
       bucket_name = @bucket_name
       mtls = nil
       if mtls_truststore
-        filename = "#{domain_name}.truststore.pem"
+        filename = "#{domain_name}.v#{@version_number}.truststore.pem"
         upload_file(filename, mtls_truststore)
         truststore_uri = "s3://#{bucket_name}/uploads/#{filename}"
         mtls = {
