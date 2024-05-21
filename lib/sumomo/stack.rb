@@ -23,7 +23,7 @@ module Sumomo
                     description: "Lambda Function in #{@bucket_name}",
                     function_key: "cloudformation/lambda/function_#{name}",
                     handler: 'index.handler',
-                    runtime: 'nodejs18.x',
+                    runtime: 'nodejs20.x',
                     env: {},
                     memory_size: 128,
                     timeout: 30,
