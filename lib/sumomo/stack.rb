@@ -116,6 +116,22 @@ module Sumomo
       fun
     end
 
+    def node_modules
+      dir = File.join(Gem.loaded_specs['sumomo'].full_gem_path, 'data', 'sumomo', 'api_modules', 'node_modules')
+
+      files = Dir["#{dir}/**/*.*"]
+
+      files.map do |relpath|
+        fullpath = File.realpath(relpath)
+        name = relpath.sub(/^#{dir}/, 'node_modules')
+
+        {
+          name: name,
+          path: fullpath
+        }
+      end
+    end
+
     def define_custom_resource(name: nil, code:, role: nil)
       name ||= make_default_resource_name('CustomResource')
       role ||= custom_resource_exec_role
@@ -127,7 +143,8 @@ module Sumomo
           {
             name: 'index.js',
             code: File.read(File.join(Gem.loaded_specs['sumomo'].full_gem_path, 'data', 'sumomo', 'custom_resource_utils.js')).sub('{{ CODE }}', code)
-          }
+          },
+          *node_modules
         ],
         description: "CF Resource Custom::#{name}",
         function_key: "cloudformation/custom_resources/function_#{name}"
