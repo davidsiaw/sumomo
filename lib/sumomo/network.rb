@@ -31,7 +31,10 @@ module Sumomo
 
       vpc = use_vpc || make_vpc
 
-      gateway = use_gateway || make_gateway
+      gateway = use_gateway
+      if gateway.nil?
+        gateway = make_gateway
+      end
 
       attachment = nil
 
@@ -50,10 +53,12 @@ module Sumomo
         tag 'Name', call('Fn::Join', '-', ['public', ref('AWS::StackName')])
       end
 
-      make 'AWS::EC2::Route' do
-        RouteTableId inet_route_table
-        DestinationCidrBlock '0.0.0.0/0'
-        GatewayId gateway
+      if gateway != false
+        make 'AWS::EC2::Route' do
+          RouteTableId inet_route_table
+          DestinationCidrBlock '0.0.0.0/0'
+          GatewayId gateway
+        end
       end
 
       last_unused_number = 0
