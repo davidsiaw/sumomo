@@ -19,7 +19,7 @@ global_opts = Optimist.options do
   stop_on SUB_COMMANDS
 end
 
-ENV['AWS_PROFILE'] = global_opts[:profile]
+ENV['AWS_PROFILE'] ||= global_opts[:profile]
 
 puts 'Using profile:'
 p ENV['AWS_PROFILE']
