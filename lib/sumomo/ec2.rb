@@ -34,12 +34,19 @@ module Sumomo
         }
       elsif thing.is_a? Hash
         # more shit
-        {
+        result = {
           'IpProtocol' => thing[:protocol] || 'tcp',
           'ToPort' => thing[:port] || thing[:end_port] || 0,
-          'FromPort' => thing[:port] || thing[:start_port] || 65_535,
-          'CidrIp' => thing[:cidr] || '0.0.0.0/0'
+          'FromPort' => thing[:port] || thing[:start_port] || 65_535
         }
+        
+        if thing[:cidr6]
+          result['CidrIpv6'] = thing[:cidr6]
+        else
+          result['CidrIp'] = thing[:cidr] || '0.0.0.0/0'
+        end
+
+        result
       else
         raise 'utils.rb allow: please allow something'
       end

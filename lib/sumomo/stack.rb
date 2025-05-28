@@ -230,6 +230,11 @@ module Sumomo
           },
           {
             'Effect' => 'Allow',
+            'Action' => ['rds:*'],
+            'Resource' => '*'
+          },
+          {
+            'Effect' => 'Allow',
             'Action' => ['s3:DeleteObject', 's3:GetObject', 's3:PutObject'],
             'Resource' => "arn:aws:s3:::#{@bucket_name}/*"
           },

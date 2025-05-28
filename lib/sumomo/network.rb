@@ -21,7 +21,7 @@ module Sumomo
     end
 
     def make_network(
-        layers: [], 
+        layers: [],
         use_vpc: nil,
         use_gateway: nil
       )
@@ -129,6 +129,8 @@ module Sumomo
       end
 
       Hashie::Mash.new vpc: vpc, subnets: subnets, azs: zones, attachment: attachment
+
+
     end
   end
 end

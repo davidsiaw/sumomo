@@ -14,6 +14,7 @@ require 'sumomo/ec2'
 require 'sumomo/ecs'
 require 'sumomo/stack'
 require 'sumomo/network'
+require 'sumomo/az_detector'
 require 'sumomo/momo_extensions/resource'
 require 'sumomo/momo_extensions/stack'
 
@@ -37,6 +38,9 @@ module Sumomo
     cf = Aws::CloudFormation::Client.new(region: region)
     s3 = Aws::S3::Client.new(region: region)
     ec2 = Aws::EC2::Client.new(region: region)
+          
+    sts = Aws::STS::Client.new(region: region)
+    caller_id = sts.get_caller_identity()
 
     begin
       s3.head_bucket(bucket: name)
@@ -69,10 +73,39 @@ module Sumomo
 
     end
 
-    dummy_number = store.get('cloudformation/dummy_number')
+    # find the dummy resource and grab its tag number there
+    dummy_number = nil
+    begin
+      resp = cf.describe_stack_resource({
+        stack_name: name,
+        logical_resource_id: "DummyResource"
+      })
+
+      dummy_secgroup_id = resp.stack_resource_detail.physical_resource_id
+
+      resp = ec2.describe_security_groups({
+        group_ids: [
+          dummy_secgroup_id
+        ], 
+      })
+
+      tags = resp.security_groups.first.tags.select{|x| x['key'] == 'Name'}
+
+      if tags.length > 0
+        dummy_number = tags.first.value.sub('dummyfordeploy','').to_i
+      end
+    rescue Aws::CloudFormation::Errors::ValidationError
+      # stack or sg does not exist
+    end
+
     dummy_number = 0 if dummy_number.nil?
     dummy_number += 1
     store.set('cloudformation/dummy_number', dummy_number)
+
+    attempt_number = store.get('cloudformation/attempt_number')
+    attempt_number = 0 if attempt_number.nil?
+    attempt_number += 1
+    store.set('cloudformation/attempt_number', attempt_number)
 
     hidden_values = []
 
@@ -81,6 +114,7 @@ module Sumomo
 
       @region = region
       @version_number = dummy_number
+      @attempt_number = attempt_number
       @custom_resources = {}
       @bucket_name = name
       @store = store
@@ -91,6 +125,7 @@ module Sumomo
       @has_dummy = true
       @dummy_vpc = nil
       @timeout = nil
+      @caller_arn = caller_id[:arn]
 
       instance_eval(&block)
 
