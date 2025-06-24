@@ -163,6 +163,15 @@ module Sumomo
       end
     end
 
+    # tagged name
+    def make_named(type, name:, &block)
+      make(type, {name: name}) do
+        instance_eval(&block)
+        tag 'Name', call('Fn::Join', '-', [ref('AWS::StackName'), name])
+        tag 'CFResourceType', type
+      end
+    end
+
     def make(type, options = {}, &block)
       match = /^Custom\:\:(?<name>[a-z0-9]+)/i.match(type)
       if match

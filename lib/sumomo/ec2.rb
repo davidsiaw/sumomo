@@ -14,7 +14,8 @@ module Sumomo
           'IpProtocol' => '-1',
           'ToPort' => 65_535,
           'FromPort' => 0,
-          'CidrIp' => '0.0.0.0/0'
+          'CidrIp' => '0.0.0.0/0',
+          'Description' => 'Allow all traffic from everywhere on all ports'
         }
       elsif thing.is_a?(Integer) && (thing > 0) && (thing < 65_536)
         # its a port!
@@ -22,7 +23,8 @@ module Sumomo
           'IpProtocol' => 'tcp',
           'ToPort' => thing,
           'FromPort' => thing,
-          'CidrIp' => '0.0.0.0/0'
+          'CidrIp' => '0.0.0.0/0',
+          'Description' => "Allow TCP traffic from everywhere on port #{thing}"
         }
       elsif thing.is_a?(String) && %r{[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+}.match(thing)
         # its a cidr!
@@ -30,14 +32,18 @@ module Sumomo
           'IpProtocol' => 'tcp',
           'ToPort' => 65_535,
           'FromPort' => 0,
-          'CidrIp' => thing
+          'CidrIp' => thing,
+          'Description' => "Allow TCP traffic from #{thing} on all ports"
         }
       elsif thing.is_a? Hash
         # more shit
+        to_port = thing[:port] || thing[:end_port] || 0
+        from_port = thing[:port] || thing[:start_port] || 65_535
         result = {
           'IpProtocol' => thing[:protocol] || 'tcp',
-          'ToPort' => thing[:port] || thing[:end_port] || 0,
-          'FromPort' => thing[:port] || thing[:start_port] || 65_535
+          'ToPort' => to_port,
+          'FromPort' => from_port,
+          'Description' => "Allow TCP traffic from everywhere on ports #{from_port}-#{to_port}"
         }
         
         if thing[:cidr6]
@@ -48,7 +54,7 @@ module Sumomo
 
         result
       else
-        raise 'utils.rb allow: please allow something'
+        raise 'ec2.rb allow: please allow something'
       end
     end
 
