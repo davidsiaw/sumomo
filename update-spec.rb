@@ -18,6 +18,7 @@ start = {
   p: 2.0,
   r: 2.0,
   t: 1.0,
+  u: 2.0,
   v: 2.0,
   x: 2.0,
   z: 2.0
@@ -47,6 +48,10 @@ data['InstanceTypes'].each do |info|
   end
 
   gennum = /[0-9]/.match(info['InstanceType']).to_s.to_i
+
+  p gennum
+  p info['InstanceType']
+
   ecu = (( start[ info['InstanceType'][0].to_sym ] + gennum.to_f * 0.5) * (info['VCpuInfo']['DefaultVCpus']).to_f * 1024).floor
   types << "  '#{info['InstanceType']}': { cpu: #{info['VCpuInfo']['DefaultVCpus'] * 1024}, memory: #{info["MemoryInfo"]["SizeInMiB"]}, gen: #{gennum}, ecu: #{ecu}, arch: '#{info["ProcessorInfo"]["SupportedArchitectures"].last}' }"
   types2 << "  '#{info['InstanceType']}': { pattern: '#{pattern}' }"
