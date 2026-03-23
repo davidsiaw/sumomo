@@ -107,10 +107,12 @@ module Sumomo
       end
 
       if enable_logging
-        make 'AWS::Logs::LogGroup', name: "#{name}LogGroup" do
-          LogGroupName call('Fn::Join', '', ['/aws/lambda/', fun])
-          RetentionInDays 30
-        end
+        # make 'AWS::Logs::LogGroup', name: "#{name}LogGroup" do
+        #   depends_on fun
+        #   set_deletion_policy 'retain'
+        #   LogGroupName call('Fn::Join', '', ['/aws/lambda/', fun])
+        #   RetentionInDays 30
+        # end
       end
 
       fun
@@ -156,6 +158,7 @@ module Sumomo
     def make_custom(custom_resource, options = {}, &block)
       bucket_name = @bucket_name
       stack_make "Custom::#{custom_resource.name}", options do
+        ServiceTimeout options[:timeout] || 120
         ServiceToken custom_resource.Arn
         Region ref('AWS::Region')
         Bucket bucket_name

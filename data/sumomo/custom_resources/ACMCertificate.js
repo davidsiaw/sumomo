@@ -19,6 +19,71 @@ function extractRootDomain(domain)
   return domain;
 }
 
+function get_certificate(domain_name, cert_arn, on_success, on_fail)
+{
+  var params = {
+    CertificateArn: cert_arn
+  };
+
+  acm.describeCertificate(params, function(err, cert_data) {
+    console.log('looking up certificate data');
+    console.log(cert_data);
+    console.log(cert_data.Certificate.DomainValidationOptions);
+    console.log(cert_data.Certificate.DomainValidationOptions[0]);
+
+    if (err)
+    {
+      on_fail(err);
+    }
+    else
+    {
+      if (!cert_data.Certificate.DomainValidationOptions[0].ResourceRecord)
+      {
+        // damn AWS now does not return this information immediately
+        // and we have to wait for it.
+        return setTimeout(function()
+        {
+          console.log('no ResourceRecord found, retrying...', "attempts:", retries);
+          if (retries < 60)
+          {
+            get_certificate(domain_name, cert_arn, on_success, on_fail);
+            retries += 1;
+          }
+          else
+          {
+            on_fail('AWS did not return ResourceRecord. (AWS issue)');
+          }
+          
+        }, 1000);
+      }
+      // Do not wait if we requested DNS validation        
+      if (request.ResourceProperties.ValidationMethod === "DNS")
+      {
+        return_properties.RecordName = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Name;
+        return_properties.RecordType = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Type;
+        return_properties.RecordValue = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Value;
+        return on_success(data.arn);
+      }
+
+      if (cert_data.Certificate.DomainValidationOptions[0].ValidationStatus === "SUCCESS")
+      {
+        on_success(data.arn);
+      }
+      else if (cert_data.Certificate.DomainValidationOptions[0].ValidationStatus === "FAILED")
+      {
+        on_fail("Verification Failed");
+      }
+      else
+      {
+        setTimeout(function()
+        {
+          get_certificate(domain_name, cert_arn, on_success, on_fail);
+        }, 3000);
+      }
+    }
+  });
+}
+
 function wait_for_approval(domain_name, on_success, on_fail)
 {
   console.log('read domain: ', domain_name);
@@ -27,68 +92,7 @@ function wait_for_approval(domain_name, on_success, on_fail)
     console.log('loaded domain data: ');
     console.log(data);
 
-    var params = {
-      CertificateArn: data.arn
-    };
-
-    acm.describeCertificate(params, function(err, cert_data) {
-      console.log('received certificate data');
-      console.log(cert_data);
-      console.log(cert_data.Certificate.DomainValidationOptions);
-      console.log(cert_data.Certificate.DomainValidationOptions[0]);
-
-
-      if (err)
-      {
-        on_fail(err);
-      }
-      else
-      {
-        if (!cert_data.Certificate.DomainValidationOptions[0].ResourceRecord)
-        {
-          // damn AWS now does not return this information immediately
-          // and we have to wait for it.
-          return setTimeout(function()
-          {
-            console.log('no ResourceRecord found, retrying...', "attempts:", retries);
-            if (retries < 60)
-            {
-              wait_for_approval(domain_name, on_success, on_fail);
-              retries += 1;
-            }
-            else
-            {
-              on_fail('AWS did not return ResourceRecord. (AWS issue)');
-            }
-            
-          }, 1000);
-        }
-        // Do not wait if we requested DNS validation        
-        if (request.ResourceProperties.ValidationMethod === "DNS")
-        {
-          return_properties.RecordName = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Name;
-          return_properties.RecordType = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Type;
-          return_properties.RecordValue = cert_data.Certificate.DomainValidationOptions[0].ResourceRecord.Value;
-          return on_success(data.arn);
-        }
-
-        if (cert_data.Certificate.DomainValidationOptions[0].ValidationStatus === "SUCCESS")
-        {
-          on_success(data.arn);
-        }
-        else if (cert_data.Certificate.DomainValidationOptions[0].ValidationStatus === "FAILED")
-        {
-          on_fail("Verification Failed");
-        }
-        else
-        {
-          setTimeout(function()
-          {
-            wait_for_approval(domain_name, on_success, on_fail);
-          }, 3000);
-        }
-      }
-    });
+    get_certificate(domain_name, data.arn, on_success, on_fail);
   }, on_fail);
 }
 
@@ -198,9 +202,12 @@ if (request.RequestType == "Update")
   }
   else
   {
-    get_domain(function(data)
+    get_domain(request.ResourceProperties.DomainName, function(data)
     {
-      Cloudformation.send(request, context, Cloudformation.SUCCESS, return_properties, "Success", data.arn);
+      get_certificate(request.ResourceProperties.DomainName, data.arn, function(data)
+      {
+        Cloudformation.send(request, context, Cloudformation.SUCCESS, return_properties, "Success", data);
+      }, fail)      
     }, fail);
   }
 }

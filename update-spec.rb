@@ -41,7 +41,7 @@ data['InstanceTypes'].each do |info|
 
   raise 'UNKNOWN ARCH COMBINATION' if arch == 'arm64' && mount == 's3'
 
-  pattern = "amzn2-ami-#{virt}-2.0.*#{arch}-#{mount}"
+  pattern = "al2023-ami-#{virt}-2023.0.*#{arch}"
 
   if arch == 'x86_64_mac'
     pattern = 'amzn-ec2-macos-*'
@@ -383,4 +383,4 @@ lookup = <<~AMILOOKUP
 AMILOOKUP
 
 File.write('data/sumomo/custom_resources/SelectSpot.js', selectspot);
-File.write('data/sumomo/custom_resources/AMILookup.js', lookup);
+File.write('data/sumomo/custom_resources/AMILookup2023.js', lookup);

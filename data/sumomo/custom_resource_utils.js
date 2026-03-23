@@ -1,4 +1,5 @@
 var aws = require("aws-sdk");
+const { URL } = require('url');
 
 Cloudformation = {}
 Cloudformation.SUCCESS = "SUCCESS";
@@ -8,15 +9,16 @@ Cloudformation.send = function(request, context, responseStatus, responseData, r
  
     var responseBody = JSON.stringify({
         Status: responseStatus,
-        Reason: reason + " Log Stream: " + context.logStreamName,
+        Reason: "See the details in CloudWatch Log Stream: " + context.logStreamName,
         PhysicalResourceId: physicalResourceId === undefined ? context.logStreamName : physicalResourceId,
         StackId: request.StackId,
         RequestId: request.RequestId,
         LogicalResourceId: request.LogicalResourceId,
+        NoEcho: false,
         Data: responseData
     });
- 
-    console.log("Response body:\n", responseBody);
+
+    console.log("response to cloudformation:\n", responseBody);
  
     var https = require("https");
     var url = require("url");
@@ -32,21 +34,23 @@ Cloudformation.send = function(request, context, responseStatus, responseData, r
             "content-length": responseBody.length
         }
     };
+
+    console.log("response to cloudformation params:\n", options);
  
     var request = https.request(options, function(response) {
         console.log("Status code: " + response.statusCode);
         console.log("Status message: " + response.statusMessage);
-        context.done();
+        Cloudformation.status_sent = true;
     });
  
     request.on("error", function(error) {
         console.log("send(..) failed executing https.request(..): " + error);
-        context.done();
+        Cloudformation.status_sent = true;
     });
  
+    console.log("sending response to cloudformation");
     request.write(responseBody);
     request.end();
-    Cloudformation.status_sent = true;
 }
 
 function Storage(bucket, prefix, region)
@@ -83,23 +87,28 @@ function Storage(bucket, prefix, region)
 
   this.get = function(key, onComplete, onError) {
 
+    console.log("store.get");
     s3.getObject({
       Bucket: bucket,
       Key: "data/" + prefix + "/" + key
     }, function(err, data) {
+      console.log("store.get calback");
       if (err)
       {
         if (onError)
         {
+          console.log("store.get onerror");
           onError(err);
         }
         else
         {
+          console.log("store.get throw error");
           throw(err);
         }
       } 
       else 
       {
+        console.log("store.get completed");
         if (onComplete)
         {
           onComplete(data.Body.toString());
@@ -127,7 +136,7 @@ process.on('exit', function() {
   }
 });
 
-exports.handler = function(request, context)
+exports.handler = async function(request, context)
 {
   console.log("Request:");
   console.log(request);
@@ -138,14 +147,26 @@ exports.handler = function(request, context)
   Global.context = context;
   var store = Storage(request.ResourceProperties.Bucket, request.LogicalResourceId, request.ResourceProperties.Region);
 
-  try
+  setTimeout(function()
   {
-      {{ CODE }}
+    try
+    {
+        {{ CODE }}
+    }
+    catch (err)
+    {
+        console.log("Sending the following error to cloudformation: ");
+        console.log(err);
+        Cloudformation.send(request, context, Cloudformation.FAILED, {}, err);
+    }
+  }, 0);
+
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+  while(!Cloudformation.status_sent) {
+    console.log('await finish');
+    await sleep(1000);
   }
-  catch (err)
-  {
-      console.log("Sending the following error to cloudformation: ");
-      console.log(err);
-      Cloudformation.send(request, context, Cloudformation.FAILED, {}, err);
-  }
+
+  await sleep(2000);
 }
