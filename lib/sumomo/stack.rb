@@ -266,6 +266,40 @@ module Sumomo
             'Resource' => '*'
           },
           {
+            # Custom::WafAssociation associates/disassociates a WebACL with a
+            # regional resource (an ALB). Associating a WebACL with an ALB
+            # requires BOTH the wafv2 action and the elasticloadbalancing
+            # action per resource type — see
+            # https://docs.aws.amazon.com/waf/latest/developerguide/security_iam_service-with-iam.html
+            'Effect' => 'Allow',
+            'Action' => [
+              'wafv2:AssociateWebACL',
+              'wafv2:DisassociateWebACL',
+              'wafv2:GetWebACLForResource',
+              'wafv2:GetWebACL',
+              'elasticloadbalancing:SetWebACL',
+              'elasticloadbalancing:CreateWebACLAssociation',
+              'elasticloadbalancing:DeleteWebACLAssociation',
+              'elasticloadbalancing:GetLoadBalancerWebACL'
+            ],
+            'Resource' => '*'
+          },
+          {
+            # Custom::CloudFrontWebACL manages a CLOUDFRONT-scope IPSet + WebACL.
+            # Those always live in us-east-1 under the "global/" ARN prefix.
+            'Effect' => 'Allow',
+            'Action' => [
+              'wafv2:CreateIPSet',
+              'wafv2:GetIPSet',
+              'wafv2:UpdateIPSet',
+              'wafv2:DeleteIPSet',
+              'wafv2:CreateWebACL',
+              'wafv2:GetWebACL',
+              'wafv2:DeleteWebACL'
+            ],
+            'Resource' => 'arn:aws:wafv2:us-east-1:*:global/*'
+          },
+          {
             'Effect' => 'Allow',
             'Action' => ['s3:*'],
             'Resource' => 'arn:aws:s3:::*'
